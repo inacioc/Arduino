@@ -1,5 +1,7 @@
 package com.example.rewrite;
-
+// mvn -U org.openrewrite.maven:rewrite-maven-plugin:6.32.0:run \
+  -Drewrite.recipeArtifactCoordinates=com.example:rewrite-field-to-constructor:1.0.0-SNAPSHOT \
+  -Drewrite.activeRecipes=com.example.rewrite.FieldInjectionToConstructorInjectionRecipe
 import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
