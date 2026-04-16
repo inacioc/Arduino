@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>rewrite-field-to-constructor</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>OpenRewrite - Field Injection to Constructor Injection Recipe</name>
+    <description>
+        Custom OpenRewrite recipe that converts Spring @Autowired field injection
+        to constructor injection following Spring Framework best practices.
+    </description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!--
+            Single version to manage: the BOM aligns ALL OpenRewrite modules automatically.
+            rewrite-recipe-bom 3.27.0 pulls in:
+              - rewrite-core / rewrite-java / rewrite-java-21  => 8.77.0
+              - rewrite-spring                                  => 6.27.0
+              - rewrite-maven-plugin                            => 6.35.0
+        -->
+        <rewrite-recipe-bom.version>3.27.0</rewrite-recipe-bom.version>
+        <rewrite-maven-plugin.version>6.35.0</rewrite-maven-plugin.version>
+
+        <!-- Spring version used only to resolve @Service/@Autowired in tests -->
+        <spring-framework.version>6.2.5</spring-framework.version>
+    </properties>
+
+    <!-- ====================================================================
+         BOM import — guarantees all OpenRewrite modules use compatible versions.
+         This is the OFFICIAL recommended approach by the OpenRewrite team.
+         No individual version numbers needed on any rewrite-* dependency below.
+         ==================================================================== -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.openrewrite.recipe</groupId>
+                <artifactId>rewrite-recipe-bom</artifactId>
+                <version>${rewrite-recipe-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+
+        <!-- ================================================================
+             OpenRewrite Core — versions managed by BOM, no version needed
+             ================================================================ -->
+        <dependency>
+            <groupId>org.openrewrite</groupId>
+            <artifactId>rewrite-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openrewrite</groupId>
+            <artifactId>rewrite-java</artifactId>
+        </dependency>
+
+        <!--
+            Java 21 parser — replaces rewrite-java-17.
+            The test framework (RewriteTest) auto-selects Java21Parser at runtime.
+            Java 21 parser is fully backward compatible with Java 17 syntax.
+        -->
+        <dependency>
+            <groupId>org.openrewrite</groupId>
+            <artifactId>rewrite-java-21</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Spring-specific recipe support -->
+        <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-spring</artifactId>
+        </dependency>
+
+        <!-- ================================================================
+             Lombok
+             ================================================================ -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.36</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ================================================================
+             Test dependencies — versions managed by BOM
+             ================================================================ -->
+        <dependency>
+            <groupId>org.openrewrite</groupId>
+            <artifactId>rewrite-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Spring jars on the TEST classpath so the JavaParser can fully resolve
+            @Service, @Component, @Autowired, @RestController annotations.
+            The test uses: .classpath("spring-context", "spring-beans", "spring-web")
+            which looks up jars by artifact name from the test classpath at runtime.
+        -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>${spring-framework.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-beans</artifactId>
+            <version>${spring-framework.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>${spring-framework.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+
+        <resources>
+            <!-- ================================================================
+                 Packages META-INF/rewrite/*.yml into the jar so OpenRewrite
+                 can auto-discover the recipe by name from the command line
+                 ================================================================ -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>META-INF/rewrite/*.yml</include>
+                </includes>
+            </resource>
+        </resources>
+
+        <plugins>
+
+            <!-- ================================================================
+                 Compiler - Java 21 + Lombok annotation processing
+                 ================================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.36</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- ================================================================
+                 Surefire - JUnit 5 support
+                 Run tests: mvn test
+                 ================================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
+
+            <!-- ================================================================
+                 Resources - UTF-8 encoding
+                 ================================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ================================================================
+                 OpenRewrite Maven Plugin
+
+                 Step 1 - Install recipe to local Maven repo (~/.m2):
+                   mvn clean install
+
+                 Step 2 - Run on ANY other project (no pom.xml changes needed):
+                   mvn -U org.openrewrite.maven:rewrite-maven-plugin:6.35.0:run \
+                     -Drewrite.recipeArtifactCoordinates=com.example:rewrite-field-to-constructor:1.0.0-SNAPSHOT \
+                     -Drewrite.activeRecipes=com.example.rewrite.FieldInjectionToConstructorInjectionRecipe
+
+                 Dry-run (preview only, no file changes):
+                   mvn -U org.openrewrite.maven:rewrite-maven-plugin:6.35.0:run \
+                     -Drewrite.recipeArtifactCoordinates=com.example:rewrite-field-to-constructor:1.0.0-SNAPSHOT \
+                     -Drewrite.activeRecipes=com.example.rewrite.FieldInjectionToConstructorInjectionRecipe \
+                     -Drewrite.dryRun=true
+                 ================================================================ -->
+            <plugin>
+                <groupId>org.openrewrite.maven</groupId>
+                <artifactId>rewrite-maven-plugin</artifactId>
+                <version>${rewrite-maven-plugin.version}</version>
+                <configuration>
+                    <exportDatatables>true</exportDatatables>
+                    <activeRecipes>
+                        <recipe>com.example.rewrite.FieldInjectionToConstructorInjectionRecipe</recipe>
+                    </activeRecipes>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>rewrite-field-to-constructor</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.openrewrite.recipe</groupId>
+                        <artifactId>rewrite-spring</artifactId>
+                        <version>6.27.0</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
