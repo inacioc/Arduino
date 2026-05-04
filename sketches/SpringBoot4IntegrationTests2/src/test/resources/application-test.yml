@@ -1,0 +1,47 @@
+spring:
+  # ── Database ──────────────────────────────────────────────────────────────
+  # io.zonky.test @AutoConfigureEmbeddedDatabase replaces the DataSource with
+  # a real embedded PostgreSQL process — no Docker, no Testcontainers needed.
+  jpa:
+    hibernate:
+      ddl-auto: none          # Flyway manages schema in all environments
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+  flyway:
+    enabled: true
+
+  # ── IBM MQ → disabled; TestJmsConfig provides embedded Artemis instead ────
+  autoconfigure:
+    exclude:
+      - com.ibm.mq.spring.boot.MQAutoConfiguration
+
+  # Embedded Artemis broker for JMS tests
+  artemis:
+    mode: embedded
+    embedded:
+      enabled: true
+      queues: ORDER.CREATED,ORDER.STATUS.CHANGED,ORDER.EXTERNAL.UPDATES
+
+  # ── Security / Keycloak ───────────────────────────────────────────────────
+  # Tests use SecurityMockMvcRequestPostProcessors.jwt() which bypasses the
+  # real JWT decoder entirely — we just need a valid issuer-uri placeholder.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9999/test-realm   # never contacted in tests
+
+# External pricing service — WireMock injects its port via @DynamicPropertySource
+external:
+  pricing-service:
+    base-url: http://localhost:${wiremock.server.port:0}
+
+logging:
+  level:
+    org.springframework.test: WARN
+    org.springframework.security: WARN
+    com.example: DEBUG
+    org.hibernate.SQL: DEBUG
