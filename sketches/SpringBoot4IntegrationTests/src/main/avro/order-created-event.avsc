@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "namespace": "com.example.orders.avro",
+  "doc": "Event published when a new order is created",
+  "fields": [
+    {"name": "orderId",    "type": "string",  "doc": "Unique order identifier"},
+    {"name": "customerId", "type": "string",  "doc": "Customer who placed the order"},
+    {"name": "totalAmount","type": "string",  "doc": "Total order amount as string (BigDecimal serialization)"},
+    {"name": "currency",   "type": "string",  "doc": "Currency code (e.g. USD)"},
+    {"name": "status",     "type": "string",  "doc": "Order status at creation"},
+    {"name": "createdAt",  "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "UTC timestamp of creation"}
+  ]
+}

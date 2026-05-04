@@ -1,0 +1,30 @@
+# Properties overridden per-test via @DynamicPropertySource or @ServiceConnection.
+# Sensible fallbacks are set here so slice tests that don't start containers still boot.
+
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  kafka:
+    producer:
+      # In tests the KafkaConfig bean is replaced by a test-specific one with mock schema registry
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+kafka:
+  schema-registry:
+    url: mock://test
+  topics:
+    order-created: orders.order-created.test
+
+inventory:
+  service:
+    url: http://localhost:${wiremock.server.port:8089}
+
+logging:
+  level:
+    com.example.orders: DEBUG
+    org.springframework.security: DEBUG
+    org.testcontainers: INFO

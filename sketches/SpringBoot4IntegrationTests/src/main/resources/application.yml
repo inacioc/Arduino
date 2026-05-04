@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: orders-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders_db
+    username: orders_user
+    password: orders_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/orders-realm
+
+kafka:
+  schema-registry:
+    url: http://localhost:8081
+  topics:
+    order-created: orders.order-created
+
+inventory:
+  service:
+    url: http://inventory-service:8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.example.orders: DEBUG
+    org.springframework.security: INFO

@@ -1,0 +1,39 @@
+{
+  "realm": "orders-realm",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "orders-app",
+      "enabled": true,
+      "secret": "test-client-secret",
+      "directAccessGrantsEnabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "roles": {
+    "realm": [
+      {"name": "user",  "description": "Regular user"},
+      {"name": "admin", "description": "Administrator"}
+    ]
+  },
+  "users": [
+    {
+      "username": "test-user",
+      "enabled": true,
+      "email": "test-user@example.com",
+      "credentials": [{"type": "password", "value": "test-password", "temporary": false}],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin-user",
+      "enabled": true,
+      "email": "admin@example.com",
+      "credentials": [{"type": "password", "value": "admin-password", "temporary": false}],
+      "realmRoles": ["user", "admin"]
+    }
+  ]
+}
