@@ -1,0 +1,24 @@
+{
+  "groups": [
+    {
+      "name": "app.mail",
+      "type": "com.learn.spring.mail.config.MailProperties",
+      "sourceType": "com.learn.spring.mail.config.MailProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.mail.default-from",
+      "type": "java.lang.String",
+      "description": "Default sender address used when the message does not specify one.",
+      "sourceType": "com.learn.spring.mail.config.MailProperties"
+    },
+    {
+      "name": "app.mail.encoding",
+      "type": "java.lang.String",
+      "description": "Charset for the MIME message. Defaults to UTF-8.",
+      "sourceType": "com.learn.spring.mail.config.MailProperties"
+    }
+  ],
+  "hints": []
+}
