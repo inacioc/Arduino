@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: order-management
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    username: orderuser
+    password: orderpass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Flyway owns the schema; Hibernate only validates
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # Spring Batch: use the same datasource for batch metadata tables
+  batch:
+    jdbc:
+      initialize-schema: always  # auto-create batch schema if missing
+    job:
+      enabled: false             # do NOT auto-run jobs on startup
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/order-realm
+          jwk-set-uri: http://localhost:8080/realms/order-realm/protocol/openid-connect/certs
+
+# IBM MQ connection (auto-configured by mq-jms-spring-boot-starter)
+ibm:
+  mq:
+    queue-manager: QM1
+    channel: DEV.APP.SVRCONN
+    conn-name: localhost(1414)
+    user: app
+    password: passw0rd
+
+# Application-specific properties
+app:
+  product-service:
+    base-url: http://localhost:9090
+  messaging:
+    order-events-queue: ORDER.EVENTS.QUEUE

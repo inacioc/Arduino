@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Integration test profile
+#
+# Expectations:
+#   - PostgreSQL running at localhost:5433 (or override via env vars)
+#   - IBM MQ running at localhost:1414
+#   - External product-service: mocked via MockRestServiceServer (no HTTP server needed)
+#   - Keycloak is NOT needed: tests mock JWT via spring-security-test
+# ─────────────────────────────────────────────────────────────────────────────
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5433/orderdb_test}
+    username: ${TEST_DB_USER:orderuser}
+    password: ${TEST_DB_PASS:orderpass}
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    clean-disabled: false     # allow flyway clean in tests for schema resets
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+  # Disable JWT validation against real Keycloak in tests.
+  # Tests inject mocked JWTs via SecurityMockMvcRequestPostProcessors.jwt()
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri:  http://localhost:9999/test-realm   # never actually called
+          jwk-set-uri: http://localhost:9999/test-realm/protocol/openid-connect/certs
+
+ibm:
+  mq:
+    queue-manager: ${TEST_MQ_QUEUE_MANAGER:QM1}
+    channel: ${TEST_MQ_CHANNEL:DEV.APP.SVRCONN}
+    conn-name: ${TEST_MQ_HOST:localhost}(${TEST_MQ_PORT:1414})
+    user: ${TEST_MQ_USER:app}
+    password: ${TEST_MQ_PASS:passw0rd}
+
+app:
+  product-service:
+    base-url: http://product-service  # overridden per-test via @TestPropertySource in ProductRestAdapterIT
+  messaging:
+    order-events-queue: ORDER.EVENTS.TEST.QUEUE
+
+logging:
+  level:
+    com.example.ordermanagement: DEBUG
+    org.springframework.jms: DEBUG
+    org.springframework.batch: INFO
