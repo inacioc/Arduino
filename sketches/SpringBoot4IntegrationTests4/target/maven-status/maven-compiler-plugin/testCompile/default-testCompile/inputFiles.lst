@@ -1,0 +1,10 @@
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\out\rest\ProductRestAdapterIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\out\messaging\OrderMqPublisherIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\out\persistence\OrderPersistenceAdapterIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\support\JwtHelper.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\support\IntegrationTestBase.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\out\batch\OrderBatchJobIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\OrderFlowIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\in\web\SecurityIT.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\support\TestSecurityConfig.java
+C:\Apps\Learn\SpringBoot4IntegrationTests3\src\test\java\com\example\ordermanagement\adapter\in\web\OrderControllerIT.java
