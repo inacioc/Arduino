@@ -1,7 +1,6 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web.dto;
 
-import com.example.ordermanagement.domain.model.Order;
-import com.example.ordermanagement.domain.model.OrderStatus;
+import com.example.ordermanagement.domain.port.in.OrderResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,7 +10,7 @@ import java.util.UUID;
 public record OrderResponse(
         UUID id,
         String customerId,
-        OrderStatus status,
+        String status,
         BigDecimal totalAmount,
         List<OrderItemResponse> items,
         LocalDateTime createdAt,
@@ -25,25 +24,25 @@ public record OrderResponse(
             BigDecimal subtotal
     ) {}
 
-    public static OrderResponse from(Order order) {
-        List<OrderItemResponse> itemResponses = order.getItems().stream()
+    public static OrderResponse from(OrderResult order) {
+        List<OrderItemResponse> itemResponses = order.items().stream()
                 .map(item -> new OrderItemResponse(
-                        item.getProductId(),
-                        item.getProductName(),
-                        item.getQuantity(),
-                        item.getUnitPrice(),
+                        item.productId(),
+                        item.productName(),
+                        item.quantity(),
+                        item.unitPrice(),
                         item.subtotal()
                 ))
                 .toList();
 
         return new OrderResponse(
-                order.getId(),
-                order.getCustomerId(),
-                order.getStatus(),
-                order.getTotalAmount(),
+                order.id(),
+                order.customerId(),
+                order.status(),
+                order.totalAmount(),
                 itemResponses,
-                order.getCreatedAt(),
-                order.getUpdatedAt()
+                order.createdAt(),
+                order.updatedAt()
         );
     }
 }

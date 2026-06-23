@@ -1,13 +1,10 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
-import com.example.ordermanagement.domain.model.Order;
-import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.CreateOrderCommand;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCommand;
 import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
-import com.example.ordermanagement.domain.service.OrderDomainService;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderResponse;
 import jakarta.validation.Valid;
@@ -44,8 +41,8 @@ public class OrderController {
                         .map(i -> new OrderItemCommand(i.productId(), i.quantity(), i.unitPrice()))
                         .toList()
         );
-        Order order = createOrder.createOrder(command);
-        return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order));
+        OrderResponse body = OrderResponse.from(createOrder.createOrder(command));
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @GetMapping("/{id}")
@@ -60,11 +57,10 @@ public class OrderController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public List<OrderResponse> getByStatus(
-            @RequestParam(required = false) OrderStatus status) {
-        List<Order> orders = status != null
-                ? getOrder.findByStatus(status)
-                : getOrder.findByStatus(OrderStatus.PENDING);
-        return orders.stream().map(OrderResponse::from).toList();
+            @RequestParam(required = false, defaultValue = "PENDING") String status) {
+        return getOrder.findByStatus(status).stream()
+                .map(OrderResponse::from)
+                .toList();
     }
 
     @GetMapping("/customer/{customerId}")

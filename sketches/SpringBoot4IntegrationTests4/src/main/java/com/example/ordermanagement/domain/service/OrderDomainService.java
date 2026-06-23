@@ -3,12 +3,14 @@ package com.example.ordermanagement.domain.service;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderItem;
 import com.example.ordermanagement.domain.model.OrderStatus;
+import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase;
 import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
+import com.example.ordermanagement.domain.port.in.OrderResult;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
-import com.example.ordermanagement.domain.port.out.ProductServicePort;
+import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,35 +23,35 @@ import java.util.UUID;
 public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, ProcessOrderUseCase {
 
     private final OrderRepositoryPort orderRepository;
-    private final ProductServicePort productService;
+    private final ProductRepositoryPort productRepository;
     private final OrderEventPort orderEvents;
 
     public OrderDomainService(OrderRepositoryPort orderRepository,
-                               ProductServicePort productService,
+                               ProductRepositoryPort productRepository,
                                OrderEventPort orderEvents) {
-        this.orderRepository = orderRepository;
-        this.productService  = productService;
-        this.orderEvents     = orderEvents;
+        this.orderRepository   = orderRepository;
+        this.productRepository = productRepository;
+        this.orderEvents       = orderEvents;
     }
 
     // ── CreateOrderUseCase ────────────────────────────────────────────────────
 
     @Override
-    public Order createOrder(CreateOrderCommand command) {
+    public OrderResult createOrder(CreateOrderCommand command) {
         List<OrderItem> items = command.items().stream()
                 .map(itemCmd -> {
                     // Validate product exists and is available
-                    ProductServicePort.ProductInfo product = productService
-                            .findProduct(itemCmd.productId())
+                    Product product = productRepository
+                            .findById(itemCmd.productId())
                             .orElseThrow(() -> new ProductNotFoundException(itemCmd.productId()));
 
-                    if (!product.available()) {
+                    if (!product.isOrderable()) {
                         throw new ProductNotAvailableException(itemCmd.productId());
                     }
 
                     return new OrderItem(
-                            product.productId(),
-                            product.name(),
+                            product.getId(),
+                            product.getName(),
                             itemCmd.quantity(),
                             itemCmd.unitPrice()
                     );
@@ -60,53 +62,58 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         Order saved = orderRepository.save(order);
 
         orderEvents.publishOrderCreated(saved);
-        return saved;
+        return OrderResult.from(saved);
     }
 
     // ── GetOrderUseCase ───────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Order> findById(UUID orderId) {
-        return orderRepository.findById(orderId);
+    public Optional<OrderResult> findById(UUID orderId) {
+        return orderRepository.findById(orderId).map(OrderResult::from);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Order> findByStatus(OrderStatus status) {
-        return orderRepository.findByStatus(status);
+    public List<OrderResult> findByStatus(String status) {
+        OrderStatus parsed = OrderStatus.valueOf(status.trim().toUpperCase());
+        return orderRepository.findByStatus(parsed).stream()
+                .map(OrderResult::from)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Order> findByCustomerId(String customerId) {
-        return orderRepository.findByCustomerId(customerId);
+    public List<OrderResult> findByCustomerId(String customerId) {
+        return orderRepository.findByCustomerId(customerId).stream()
+                .map(OrderResult::from)
+                .toList();
     }
 
     // ── ProcessOrderUseCase ───────────────────────────────────────────────────
 
     @Override
-    public Order confirmOrder(UUID orderId) {
+    public OrderResult confirmOrder(UUID orderId) {
         Order order = findOrThrow(orderId);
         order.confirm();
-        return orderRepository.save(order);
+        return OrderResult.from(orderRepository.save(order));
     }
 
     @Override
-    public Order completeOrder(UUID orderId) {
+    public OrderResult completeOrder(UUID orderId) {
         Order order = findOrThrow(orderId);
         order.startProcessing();
         order.complete();
         Order saved = orderRepository.save(order);
         orderEvents.publishOrderCompleted(saved);
-        return saved;
+        return OrderResult.from(saved);
     }
 
     @Override
-    public Order cancelOrder(UUID orderId) {
+    public OrderResult cancelOrder(UUID orderId) {
         Order order = findOrThrow(orderId);
         order.cancel();
-        return orderRepository.save(order);
+        return OrderResult.from(orderRepository.save(order));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

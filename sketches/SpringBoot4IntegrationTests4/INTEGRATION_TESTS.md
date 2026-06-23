@@ -15,9 +15,8 @@ src/
 │       ├── adapter/
 │       │   ├── in/web/      # OrderController, GlobalExceptionHandler
 │       │   └── out/
-│       │       ├── persistence/  # JPA entities, OrderPersistenceAdapter
+│       │       ├── persistence/  # JPA entities, OrderPersistenceAdapter, ProductPersistenceAdapter
 │       │       ├── messaging/    # OrderMqPublisher, OrderMqListener (IBM MQ)
-│       │       ├── rest/         # ProductRestAdapter (RestClient → product-service)
 │       │       └── batch/        # Spring Batch 5 job (CONFIRMED → COMPLETED)
 │       └── config/          # SecurityConfig (Keycloak), JmsConfig
 └── test/
@@ -27,7 +26,6 @@ src/
         └── out/
             ├── persistence/ # OrderPersistenceAdapterIT
             ├── messaging/   # OrderMqPublisherIT
-            ├── rest/        # ProductRestAdapterIT
             └── batch/       # OrderBatchJobIT
     OrderFlowIT.java         # Full end-to-end test
 ```
@@ -38,7 +36,6 @@ src/
 |-------------|--------------|--------------------------------|---------------------------|
 | PostgreSQL  | localhost:5433 | Domain data + Batch metadata | `TEST_DB_URL`, `TEST_DB_USER`, `TEST_DB_PASS` |
 | IBM MQ      | localhost:1414 | Order event publishing       | `TEST_MQ_HOST`, `TEST_MQ_PORT`, `TEST_MQ_QUEUE_MANAGER`, etc. |
-| WireMock    | localhost:9090 | External product-service mock | Started in-process per test class |
 | Keycloak    | _not needed_   | Replaced by mock JwtDecoder  | — |
 
 ### PostgreSQL setup
@@ -88,7 +85,7 @@ TEST_DB_URL=jdbc:postgresql://myhost:5432/testdb mvn verify
 ### 1. Controller Tests — `OrderControllerIT`
 - `@SpringBootTest` + `@AutoConfigureMockMvc` (full context, real filters)
 - `SecurityMockMvcRequestPostProcessors.jwt()` for Keycloak mocking
-- WireMock for product-service HTTP stubs
+- `@MockBean ProductRepositoryPort` to stub the product catalogue lookup
 - `@Sql` for DB setup/teardown per test
 
 ### 2. Repository Tests — `OrderPersistenceAdapterIT`
@@ -101,17 +98,12 @@ TEST_DB_URL=jdbc:postgresql://myhost:5432/testdb mvn verify
 - `JmsTemplate.receiveAndConvert()` for synchronous message assertion
 - Polling pattern for async listener verification
 
-### 4. REST Adapter Tests — `ProductRestAdapterIT`
-- WireMock started once per class (`@BeforeAll`)
-- Tests HTTP error cases: 404, 500, timeout
-- Verifies correct URL paths via `wireMock.verify()`
-
-### 5. Batch Tests — `OrderBatchJobIT`
+### 4. Batch Tests — `OrderBatchJobIT`
 - `@SpringBatchTest` provides `JobLauncherTestUtils` and `JobRepositoryTestUtils`
 - Tests job-level and step-level execution
 - Verifies read/write counts in `StepExecution`
 
-### 6. Full Flow — `OrderFlowIT`
+### 5. Full Flow — `OrderFlowIT`
 - End-to-end: REST → DB → MQ
 - Verifies state at each layer after each operation
 

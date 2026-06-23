@@ -1,15 +1,15 @@
 package com.example.ordermanagement.domain.port.in;
 
-import com.example.ordermanagement.domain.model.Product;
-
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Inbound port for reading products as domain {@link Product} aggregates.
- * The catalogue still lives in an external service; this use case is the
- * domain-facing entry point that hides that detail from callers.
+ * Inbound port for reading persisted products as result DTOs.
+ * The rich {@code Product} aggregate stays inside the hexagon.
  */
 public interface GetProductUseCase {
 
-    Optional<Product> findProduct(String productId);
+    Optional<ProductResult> findProduct(String productId);
+
+    List<ProductResult> findAll();
 }

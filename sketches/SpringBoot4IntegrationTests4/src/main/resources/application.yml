@@ -47,7 +47,5 @@ ibm:
 
 # Application-specific properties
 app:
-  product-service:
-    base-url: http://localhost:9090
   messaging:
     order-events-queue: ORDER.EVENTS.QUEUE

@@ -1,14 +1,12 @@
 package com.example.ordermanagement.domain.port.in;
 
-import com.example.ordermanagement.domain.model.Order;
-
 import java.util.UUID;
 
 public interface ProcessOrderUseCase {
 
-    Order confirmOrder(UUID orderId);
+    OrderResult confirmOrder(UUID orderId);
 
-    Order completeOrder(UUID orderId);
+    OrderResult completeOrder(UUID orderId);
 
-    Order cancelOrder(UUID orderId);
+    OrderResult cancelOrder(UUID orderId);
 }
