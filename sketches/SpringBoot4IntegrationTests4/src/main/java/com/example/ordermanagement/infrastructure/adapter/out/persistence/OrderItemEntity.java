@@ -18,7 +18,7 @@ public class OrderItemEntity {
     private UUID id;
 
     @Column(name = "product_id", nullable = false)
-    private String productId;
+    private UUID productId;
 
     @Column(name = "product_name", nullable = false)
     private String productName;

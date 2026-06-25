@@ -132,13 +132,13 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
     }
 
     public static class ProductNotFoundException extends RuntimeException {
-        public ProductNotFoundException(String productId) {
+        public ProductNotFoundException(UUID productId) {
             super("Product not found: " + productId);
         }
     }
 
     public static class ProductNotAvailableException extends RuntimeException {
-        public ProductNotAvailableException(String productId) {
+        public ProductNotAvailableException(UUID productId) {
             super("Product not available: " + productId);
         }
     }

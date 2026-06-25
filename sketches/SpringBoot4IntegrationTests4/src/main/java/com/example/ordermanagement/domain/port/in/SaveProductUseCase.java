@@ -1,6 +1,7 @@
 package com.example.ordermanagement.domain.port.in;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Inbound port for creating/updating products in the local catalogue.
@@ -11,7 +12,7 @@ public interface SaveProductUseCase {
     ProductResult save(SaveProductCommand command);
 
     record SaveProductCommand(
-            String id,
+            UUID id,
             String name,
             BigDecimal price,
             boolean available

@@ -25,7 +25,7 @@ public record OrderResult(
         LocalDateTime updatedAt
 ) {
     public record OrderItemResult(
-            String productId,
+            UUID productId,
             String productName,
             int quantity,
             BigDecimal unitPrice,

@@ -51,6 +51,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(scripts = "/sql/clean-orders.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class OrderFlowIT extends IntegrationTestBase {
 
+    private static final UUID PROD_E2E = UUID.fromString("22222222-2222-2222-2222-2222222222e2");
+
     @MockBean
     private ProductRepositoryPort productRepository;
 
@@ -67,9 +69,9 @@ class OrderFlowIT extends IntegrationTestBase {
     void setup() {
         drainQueue();
 
-        when(productRepository.findById("PROD-E2E"))
+        when(productRepository.findById(PROD_E2E))
                 .thenReturn(Optional.of(Product.create(
-                        "PROD-E2E", "E2E Test Widget", new BigDecimal("100.00"), true)));
+                        PROD_E2E, "E2E Test Widget", new BigDecimal("100.00"), true)));
     }
 
     @Test
@@ -79,7 +81,7 @@ class OrderFlowIT extends IntegrationTestBase {
         // ── Step 1: Customer creates an order ─────────────────────────────────
         CreateOrderRequest createRequest = new CreateOrderRequest(
                 "e2e-customer",
-                List.of(new OrderItemRequest("PROD-E2E", 2, new BigDecimal("100.00")))
+                List.of(new OrderItemRequest(PROD_E2E, 2, new BigDecimal("100.00")))
         );
 
         String createResponse = mockMvc.perform(post("/api/orders")
@@ -138,7 +140,7 @@ class OrderFlowIT extends IntegrationTestBase {
     void customerCanViewOrders() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "view-customer",
-                List.of(new OrderItemRequest("PROD-E2E", 1, new BigDecimal("100.00")))
+                List.of(new OrderItemRequest(PROD_E2E, 1, new BigDecimal("100.00")))
         );
 
         mockMvc.perform(post("/api/orders")
@@ -159,7 +161,7 @@ class OrderFlowIT extends IntegrationTestBase {
     void cancelOrder_persistsCancelledStatus() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "cancel-customer",
-                List.of(new OrderItemRequest("PROD-E2E", 1, new BigDecimal("100.00")))
+                List.of(new OrderItemRequest(PROD_E2E, 1, new BigDecimal("100.00")))
         );
 
         String createResponse = mockMvc.perform(post("/api/orders")

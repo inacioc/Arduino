@@ -114,7 +114,8 @@ class OrderBatchJobIT extends IntegrationTestBase {
 
     private Order saveOrder(String customerId, OrderStatus target) {
         Order order = Order.create(customerId, List.of(
-                new OrderItem("PROD-BATCH", "Batch Test Product", 1, new BigDecimal("100.00"))
+                new OrderItem(UUID.fromString("44444444-0000-0000-0000-0000000000ba"),
+                        "Batch Test Product", 1, new BigDecimal("100.00"))
         ));
         order.advanceTo(target);
         return orderRepository.save(order);

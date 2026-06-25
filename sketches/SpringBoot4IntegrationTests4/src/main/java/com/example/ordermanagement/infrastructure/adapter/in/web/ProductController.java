@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/products")
@@ -36,7 +37,7 @@ public class ProductController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<ProductResponse> getById(@PathVariable String id) {
+    public ResponseEntity<ProductResponse> getById(@PathVariable UUID id) {
         return getProduct.findProduct(id)
                 .map(ProductResponse::from)
                 .map(ResponseEntity::ok)

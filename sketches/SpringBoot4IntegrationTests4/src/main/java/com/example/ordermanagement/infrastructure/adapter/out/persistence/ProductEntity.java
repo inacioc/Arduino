@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "products")
@@ -13,7 +14,7 @@ import java.math.BigDecimal;
 public class ProductEntity {
 
     @Id
-    private String id;
+    private UUID id;
 
     @Column(nullable = false)
     private String name;

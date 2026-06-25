@@ -1,6 +1,7 @@
 package com.example.ordermanagement.domain.model;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Product domain entity.
@@ -12,12 +13,12 @@ import java.math.BigDecimal;
  */
 public class Product {
 
-    private final String id;
+    private final UUID id;
     private String name;
     private BigDecimal price;
     private boolean available;
 
-    private Product(String id, String name, BigDecimal price, boolean available) {
+    private Product(UUID id, String name, BigDecimal price, boolean available) {
         this.id        = id;
         this.name      = name;
         this.price     = price;
@@ -26,9 +27,9 @@ public class Product {
 
     // ── Factory method ──────────────────────────────────────────────────────────
 
-    public static Product create(String id, String name, BigDecimal price, boolean available) {
-        if (id == null || id.isBlank()) {
-            throw new IllegalArgumentException("Product id must not be blank");
+    public static Product create(UUID id, String name, BigDecimal price, boolean available) {
+        if (id == null) {
+            throw new IllegalArgumentException("Product id must not be null");
         }
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Product name must not be blank");
@@ -78,7 +79,7 @@ public class Product {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    public String getId()        { return id; }
+    public UUID getId()          { return id; }
     public String getName()      { return name; }
     public BigDecimal getPrice() { return price; }
     public boolean isAvailable() { return available; }

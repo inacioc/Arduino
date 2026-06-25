@@ -7,7 +7,7 @@ VALUES
 
 INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price)
 VALUES
-  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', 'PROD-1', 'Widget A', 2, 50.00),
-  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', 'PROD-2', 'Widget B', 1, 50.00),
-  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000002', 'PROD-1', 'Widget A', 4, 50.00),
-  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000003', 'PROD-3', 'Gadget C', 3, 100.00);
+  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Widget A', 2, 50.00),
+  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'Widget B', 1, 50.00),
+  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'Widget A', 4, 50.00),
+  (gen_random_uuid(), 'aaaaaaaa-0000-0000-0000-000000000003', '11111111-0000-0000-0000-000000000003', 'Gadget C', 3, 100.00);

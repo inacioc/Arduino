@@ -2,6 +2,7 @@ package com.example.ordermanagement.domain.port.in;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Inbound port for reading persisted products as result DTOs.
@@ -9,7 +10,7 @@ import java.util.Optional;
  */
 public interface GetProductUseCase {
 
-    Optional<ProductResult> findProduct(String productId);
+    Optional<ProductResult> findProduct(UUID productId);
 
     List<ProductResult> findAll();
 }

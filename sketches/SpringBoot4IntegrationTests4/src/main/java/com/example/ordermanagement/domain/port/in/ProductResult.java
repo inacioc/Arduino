@@ -3,6 +3,7 @@ package com.example.ordermanagement.domain.port.in;
 import com.example.ordermanagement.domain.model.Product;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Read-only result exposed by the inbound product use cases.
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
  * the hexagon — callers see this DTO instead.
  */
 public record ProductResult(
-        String id,
+        UUID id,
         String name,
         BigDecimal price,
         boolean available
