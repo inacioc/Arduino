@@ -4,6 +4,7 @@ import com.example.ordermanagement.domain.model.Product;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Inbound port for reading persisted products.
@@ -13,7 +14,7 @@ import java.util.Optional;
  */
 public interface GetProductUseCase {
 
-    Optional<Product> findProduct(String productId);
+    Optional<Product> findProduct(UUID productId);
 
     List<Product> findAll();
 }

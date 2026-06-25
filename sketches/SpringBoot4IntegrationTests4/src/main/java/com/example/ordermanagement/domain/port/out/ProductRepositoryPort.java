@@ -4,6 +4,7 @@ import com.example.ordermanagement.domain.model.Product;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Outbound port for persisting products.
@@ -16,9 +17,9 @@ public interface ProductRepositoryPort {
 
     Product save(Product product);
 
-    Optional<Product> findById(String id);
+    Optional<Product> findById(UUID id);
 
     List<Product> findAll();
 
-    void deleteById(String id);
+    void deleteById(UUID id);
 }

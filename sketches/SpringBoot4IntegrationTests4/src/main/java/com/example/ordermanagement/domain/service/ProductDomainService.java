@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Domain service for products.
@@ -45,7 +46,7 @@ public class ProductDomainService implements GetProductUseCase, SaveProductUseCa
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Product> findProduct(String productId) {
+    public Optional<Product> findProduct(UUID productId) {
         return productRepository.findById(productId);
     }
 

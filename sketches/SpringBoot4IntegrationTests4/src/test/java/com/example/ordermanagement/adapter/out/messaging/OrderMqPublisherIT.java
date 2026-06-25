@@ -15,6 +15,7 @@ import org.springframework.jms.core.JmsTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -145,7 +146,8 @@ class OrderMqPublisherIT extends IntegrationTestBase {
 
     private Order buildOrder() {
         return Order.create("test-customer", List.of(
-                new OrderItem("PROD-MQ-1", "MQ Test Product", 2, new BigDecimal("25.00"))
+                new OrderItem(UUID.fromString("55555555-0000-0000-0000-0000000000a1"),
+                        "MQ Test Product", 2, new BigDecimal("25.00"))
         ));
     }
 }

@@ -4,6 +4,7 @@ import com.example.ordermanagement.domain.model.Order;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 public interface CreateOrderUseCase {
 
@@ -15,7 +16,7 @@ public interface CreateOrderUseCase {
     ) {}
 
     record OrderItemCommand(
-            String productId,
+            UUID productId,
             int quantity,
             BigDecimal unitPrice
     ) {}

@@ -41,7 +41,9 @@ class OrderControllerIT extends IntegrationTestBase {
     @MockBean
     private ProductRepositoryPort productRepository;
 
-    private static final String PRODUCT_ID        = "PROD-001";
+    private static final UUID PRODUCT_ID          = UUID.fromString("11111111-1111-1111-1111-111111111001");
+    private static final UUID PRODUCT_UNAVAILABLE = UUID.fromString("11111111-1111-1111-1111-1111111110aa");
+    private static final UUID PRODUCT_UNKNOWN     = UUID.fromString("11111111-1111-1111-1111-1111111110bb");
     private static final String PENDING_ORDER_ID  = "aaaaaaaa-0000-0000-0000-000000000001";
     private static final String CONFIRMED_ORDER_ID = "aaaaaaaa-0000-0000-0000-000000000002";
 
@@ -51,11 +53,11 @@ class OrderControllerIT extends IntegrationTestBase {
                 .thenReturn(Optional.of(Product.create(
                         PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true)));
 
-        when(productRepository.findById("PROD-UNAVAILABLE"))
+        when(productRepository.findById(PRODUCT_UNAVAILABLE))
                 .thenReturn(Optional.of(Product.create(
-                        "PROD-UNAVAILABLE", "Out of Stock", new BigDecimal("10.00"), false)));
+                        PRODUCT_UNAVAILABLE, "Out of Stock", new BigDecimal("10.00"), false)));
 
-        when(productRepository.findById("PROD-UNKNOWN"))
+        when(productRepository.findById(PRODUCT_UNKNOWN))
                 .thenReturn(Optional.empty());
     }
 
@@ -79,7 +81,7 @@ class OrderControllerIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.totalAmount").value(99.98))
                 .andExpect(jsonPath("$.items", hasSize(1)))
-                .andExpect(jsonPath("$.items[0].productId").value(PRODUCT_ID))
+                .andExpect(jsonPath("$.items[0].productId").value(PRODUCT_ID.toString()))
                 .andExpect(jsonPath("$.items[0].productName").value("Widget Alpha"));
     }
 
@@ -133,7 +135,7 @@ class OrderControllerIT extends IntegrationTestBase {
     void createOrder_productNotAvailable() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "customer-1",
-                List.of(new OrderItemRequest("PROD-UNAVAILABLE", 1, new BigDecimal("10.00")))
+                List.of(new OrderItemRequest(PRODUCT_UNAVAILABLE, 1, new BigDecimal("10.00")))
         );
 
         mockMvc.perform(post("/api/orders")
@@ -148,7 +150,7 @@ class OrderControllerIT extends IntegrationTestBase {
     void createOrder_productNotFound() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "customer-1",
-                List.of(new OrderItemRequest("PROD-UNKNOWN", 1, new BigDecimal("10.00")))
+                List.of(new OrderItemRequest(PRODUCT_UNKNOWN, 1, new BigDecimal("10.00")))
         );
 
         mockMvc.perform(post("/api/orders")

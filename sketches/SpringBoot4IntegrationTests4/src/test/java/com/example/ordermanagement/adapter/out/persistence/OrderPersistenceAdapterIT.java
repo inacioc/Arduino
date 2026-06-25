@@ -36,6 +36,9 @@ class OrderPersistenceAdapterIT extends IntegrationTestBase {
     @Autowired
     private OrderRepositoryPort orderRepository;
 
+    private static final UUID P_1 = UUID.fromString("33333333-0000-0000-0000-000000000001");
+    private static final UUID P_2 = UUID.fromString("33333333-0000-0000-0000-000000000002");
+
     // ── Save ──────────────────────────────────────────────────────────────────
 
     @Test
@@ -60,7 +63,7 @@ class OrderPersistenceAdapterIT extends IntegrationTestBase {
 
         assertThat(saved.getItems())
                 .extracting(OrderItem::getProductId)
-                .containsExactlyInAnyOrder("P-1", "P-2");
+                .containsExactlyInAnyOrder(P_1, P_2);
     }
 
     @Test
@@ -157,8 +160,8 @@ class OrderPersistenceAdapterIT extends IntegrationTestBase {
     private Order buildOrder(String customerId) {
         // 3 * 29.99 = 89.97 + 1 * 59.99 = 59.99 → total = 149.96
         return Order.create(customerId, List.of(
-                new OrderItem("P-1", "Product One", 3, new BigDecimal("29.99")),
-                new OrderItem("P-2", "Product Two", 1, new BigDecimal("59.99"))
+                new OrderItem(P_1, "Product One", 3, new BigDecimal("29.99")),
+                new OrderItem(P_2, "Product Two", 1, new BigDecimal("59.99"))
         ));
     }
 }

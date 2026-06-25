@@ -18,7 +18,7 @@ public record OrderResponse(
         LocalDateTime updatedAt
 ) {
     public record OrderItemResponse(
-            String productId,
+            UUID productId,
             String productName,
             int quantity,
             BigDecimal unitPrice,

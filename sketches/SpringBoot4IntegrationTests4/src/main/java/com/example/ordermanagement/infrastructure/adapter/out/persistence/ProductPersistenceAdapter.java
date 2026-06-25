@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class ProductPersistenceAdapter implements ProductRepositoryPort {
@@ -24,7 +25,7 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     }
 
     @Override
-    public Optional<Product> findById(String id) {
+    public Optional<Product> findById(UUID id) {
         return jpaRepository.findById(id).map(mapper::toDomain);
     }
 
@@ -36,7 +37,7 @@ public class ProductPersistenceAdapter implements ProductRepositoryPort {
     }
 
     @Override
-    public void deleteById(String id) {
+    public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
     }
 }
