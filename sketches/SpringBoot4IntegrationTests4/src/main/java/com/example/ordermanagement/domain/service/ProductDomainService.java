@@ -2,42 +2,56 @@ package com.example.ordermanagement.domain.service;
 
 import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.GetProductUseCase;
-import com.example.ordermanagement.domain.port.out.ProductServicePort;
+import com.example.ordermanagement.domain.port.in.SaveProductUseCase;
+import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Domain service for products.
  * <p>
- * Mirrors {@link OrderDomainService}: it drives an outbound port and exposes the
- * result as a rich domain {@link Product}. The external product catalogue returns
- * the anemic {@link ProductServicePort.ProductInfo} DTO; this service maps it into
- * the domain model so the rest of the application never sees the port DTO.
- * <p>
- * Currently stands alone — {@code OrderDomainService} still talks to
- * {@link ProductServicePort} directly.
+ * Mirrors {@link OrderDomainService}: it drives the outbound
+ * {@link ProductRepositoryPort} for persistence and returns the rich
+ * {@link Product} aggregate directly (pragmatic style). Driving adapters map
+ * the aggregate to their transport DTOs at the edge.
  */
 @Service
-public class ProductDomainService implements GetProductUseCase {
+@Transactional
+public class ProductDomainService implements GetProductUseCase, SaveProductUseCase {
 
-    private final ProductServicePort productService;
+    private final ProductRepositoryPort productRepository;
 
-    public ProductDomainService(ProductServicePort productService) {
-        this.productService = productService;
+    public ProductDomainService(ProductRepositoryPort productRepository) {
+        this.productRepository = productRepository;
+    }
+
+    // ── SaveProductUseCase ──────────────────────────────────────────────────────
+
+    @Override
+    public Product save(SaveProductCommand command) {
+        Product product = Product.create(
+                command.id(),
+                command.name(),
+                command.price(),
+                command.available()
+        );
+        return productRepository.save(product);
+    }
+
+    // ── GetProductUseCase ───────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Product> findProduct(String productId) {
+        return productRepository.findById(productId);
     }
 
     @Override
-    public Optional<Product> findProduct(String productId) {
-        return productService.findProduct(productId).map(this::toDomain);
-    }
-
-    private Product toDomain(ProductServicePort.ProductInfo info) {
-        return Product.create(
-                info.productId(),
-                info.name(),
-                info.price(),
-                info.available()
-        );
+    @Transactional(readOnly = true)
+    public List<Product> findAll() {
+        return productRepository.findAll();
     }
 }

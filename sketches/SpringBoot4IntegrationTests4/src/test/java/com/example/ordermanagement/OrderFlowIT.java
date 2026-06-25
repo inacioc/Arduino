@@ -2,9 +2,9 @@ package com.example.ordermanagement;
 
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
+import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
-import com.example.ordermanagement.domain.port.out.ProductServicePort;
-import com.example.ordermanagement.domain.port.out.ProductServicePort.ProductInfo;
+import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderItemRequest;
 import com.example.ordermanagement.infrastructure.adapter.out.messaging.OrderEvent;
@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * End-to-end integration test covering the full order lifecycle:
  *
  *   Customer creates order  (POST /api/orders)
- *       → ProductServicePort mocked (domain port, not HTTP)
+ *       → ProductRepositoryPort mocked (domain port for the local catalogue)
  *       → persists to PostgreSQL
  *       → publishes ORDER_CREATED event to IBM MQ
  *
@@ -45,15 +45,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       → status: CONFIRMED → PROCESSING → COMPLETED
  *       → publishes ORDER_COMPLETED event to IBM MQ
  *
- * ProductServicePort is mocked at the hexagonal port boundary.
- * The HTTP client behaviour of ProductRestAdapter is tested separately
- * in ProductRestAdapterIT using MockRestServiceServer.
+ * ProductRepositoryPort is mocked at the hexagonal port boundary.
+ * The JPA behaviour of ProductPersistenceAdapter is tested separately.
  */
 @Sql(scripts = "/sql/clean-orders.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class OrderFlowIT extends IntegrationTestBase {
 
     @MockBean
-    private ProductServicePort productServicePort;
+    private ProductRepositoryPort productRepository;
 
     @Autowired
     private OrderRepositoryPort orderRepository;
@@ -68,8 +67,8 @@ class OrderFlowIT extends IntegrationTestBase {
     void setup() {
         drainQueue();
 
-        when(productServicePort.findProduct("PROD-E2E"))
-                .thenReturn(Optional.of(new ProductInfo(
+        when(productRepository.findById("PROD-E2E"))
+                .thenReturn(Optional.of(Product.create(
                         "PROD-E2E", "E2E Test Widget", new BigDecimal("100.00"), true)));
     }
 

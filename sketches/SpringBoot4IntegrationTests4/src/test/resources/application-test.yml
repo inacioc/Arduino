@@ -4,7 +4,7 @@
 # Expectations:
 #   - PostgreSQL running at localhost:5433 (or override via env vars)
 #   - IBM MQ running at localhost:1414
-#   - External product-service: mocked via MockRestServiceServer (no HTTP server needed)
+#   - Product catalogue: persisted locally in PostgreSQL (ProductRepositoryPort)
 #   - Keycloak is NOT needed: tests mock JWT via spring-security-test
 # ─────────────────────────────────────────────────────────────────────────────
 spring:
@@ -47,8 +47,6 @@ ibm:
     password: ${TEST_MQ_PASS:passw0rd}
 
 app:
-  product-service:
-    base-url: http://product-service  # overridden per-test via @TestPropertySource in ProductRestAdapterIT
   messaging:
     order-events-queue: ORDER.EVENTS.TEST.QUEUE
 

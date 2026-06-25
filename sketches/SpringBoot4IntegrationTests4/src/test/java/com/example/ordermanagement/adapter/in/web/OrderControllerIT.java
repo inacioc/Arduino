@@ -1,7 +1,7 @@
 package com.example.ordermanagement.adapter.in.web;
 
-import com.example.ordermanagement.domain.port.out.ProductServicePort;
-import com.example.ordermanagement.domain.port.out.ProductServicePort.ProductInfo;
+import com.example.ordermanagement.domain.model.Product;
+import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderItemRequest;
 import com.example.ordermanagement.support.IntegrationTestBase;
@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -31,33 +30,32 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  - Full Spring context (@SpringBootTest via IntegrationTestBase).
  *  - Real PostgreSQL database (application-test.yml).
  *  - Keycloak mocked via SecurityMockMvcRequestPostProcessors.jwt().
- *  - ProductServicePort mocked with @MockBean — the controller tests verify
+ *  - ProductRepositoryPort mocked with @MockBean — the controller tests verify
  *    HTTP routing, validation, auth, and domain logic. They are not responsible
- *    for testing the HTTP client that calls the product service; that is
- *    ProductRestAdapterIT's job.
+ *    for testing the JPA persistence of the product catalogue.
  *  - @Sql scripts clean DB state before each test.
  */
 @Sql(scripts = "/sql/clean-orders.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class OrderControllerIT extends IntegrationTestBase {
 
     @MockBean
-    private ProductServicePort productServicePort;
+    private ProductRepositoryPort productRepository;
 
     private static final String PRODUCT_ID        = "PROD-001";
     private static final String PENDING_ORDER_ID  = "aaaaaaaa-0000-0000-0000-000000000001";
     private static final String CONFIRMED_ORDER_ID = "aaaaaaaa-0000-0000-0000-000000000002";
 
     @BeforeEach
-    void stubProductService() {
-        when(productServicePort.findProduct(PRODUCT_ID))
-                .thenReturn(Optional.of(new ProductInfo(
+    void stubProductCatalogue() {
+        when(productRepository.findById(PRODUCT_ID))
+                .thenReturn(Optional.of(Product.create(
                         PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true)));
 
-        when(productServicePort.findProduct("PROD-UNAVAILABLE"))
-                .thenReturn(Optional.of(new ProductInfo(
+        when(productRepository.findById("PROD-UNAVAILABLE"))
+                .thenReturn(Optional.of(Product.create(
                         "PROD-UNAVAILABLE", "Out of Stock", new BigDecimal("10.00"), false)));
 
-        when(productServicePort.findProduct("PROD-UNKNOWN"))
+        when(productRepository.findById("PROD-UNKNOWN"))
                 .thenReturn(Optional.empty());
     }
 

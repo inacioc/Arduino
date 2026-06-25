@@ -5,10 +5,10 @@ import java.math.BigDecimal;
 /**
  * Product domain entity.
  * <p>
- * A richer replacement for the anemic {@code ProductServicePort.ProductInfo} record:
- * it guards its own invariants and exposes business behaviour rather than being a
- * bare data carrier. The product catalogue still lives in an external service, so
- * adapters are expected to map their transport representation into this model.
+ * A rich aggregate that guards its own invariants and exposes business
+ * behaviour rather than being a bare data carrier. The product catalogue is
+ * persisted locally via {@code ProductRepositoryPort}; the persistence adapter
+ * maps this model to and from its JPA entity.
  */
 public class Product {
 
