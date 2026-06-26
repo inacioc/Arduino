@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: order-web
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    username: orderuser
+    password: orderpass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Liquibase owns the schema; Hibernate only validates
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+    show-sql: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml   # from the persistence module on the classpath
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/order-realm
+          jwk-set-uri: http://localhost:8080/realms/order-realm/protocol/openid-connect/certs
+
+# IBM MQ connection (the web app publishes order events via the messaging adapter)
+ibm:
+  mq:
+    queue-manager: QM1
+    channel: DEV.APP.SVRCONN
+    conn-name: localhost(1414)
+    user: app
+    password: passw0rd
+
+app:
+  messaging:
+    order-events-queue: ORDER.EVENTS.QUEUE

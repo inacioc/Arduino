@@ -43,7 +43,7 @@ src/
 ```sql
 CREATE USER orderuser WITH PASSWORD 'orderpass';
 CREATE DATABASE orderdb_test OWNER orderuser;
--- Flyway will create tables automatically on first run
+-- Liquibase will create tables automatically on first run
 ```
 
 ### IBM MQ setup (DEV image)

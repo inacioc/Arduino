@@ -1,0 +1,12 @@
+# Messaging-slice test profile — real IBM MQ, no web/DB.
+ibm:
+  mq:
+    queue-manager: ${TEST_MQ_QUEUE_MANAGER:QM1}
+    channel: ${TEST_MQ_CHANNEL:DEV.APP.SVRCONN}
+    conn-name: ${TEST_MQ_HOST:localhost}(${TEST_MQ_PORT:1414})
+    user: ${TEST_MQ_USER:app}
+    password: ${TEST_MQ_PASS:passw0rd}
+
+app:
+  messaging:
+    order-events-queue: ORDER.EVENTS.TEST.QUEUE

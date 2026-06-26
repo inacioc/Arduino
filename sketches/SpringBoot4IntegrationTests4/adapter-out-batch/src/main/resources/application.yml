@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: order-batch
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    username: orderuser
+    password: orderpass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml   # from the persistence module on the classpath
+
+  batch:
+    jdbc:
+      initialize-schema: always   # auto-create batch metadata tables
+    job:
+      enabled: false              # the job is launched explicitly, not on startup
