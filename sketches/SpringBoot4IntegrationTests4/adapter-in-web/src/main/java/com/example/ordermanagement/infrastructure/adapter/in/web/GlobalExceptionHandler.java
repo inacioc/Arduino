@@ -7,6 +7,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -15,14 +17,17 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler(OrderDomainService.ProductNotFoundException.class)
-    public ProblemDetail handleProductNotFound(OrderDomainService.ProductNotFoundException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
-    @ExceptionHandler(OrderDomainService.ProductNotAvailableException.class)
-    public ProblemDetail handleProductNotAvailable(OrderDomainService.ProductNotAvailableException ex) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    @ExceptionHandler(OrderDomainService.OrderValidationException.class)
+    public ProblemDetail handleOrderValidation(OrderDomainService.OrderValidationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        problem.setProperty("errors", ex.getErrors().stream()
+                .map(e -> Map.of(
+                        "productId", e.productId().toString(),
+                        "code", e.code().name(),
+                        "message", e.message()))
+                .toList());
+        return problem;
     }
 
     @ExceptionHandler(IllegalStateException.class)

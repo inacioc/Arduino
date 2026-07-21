@@ -13,6 +13,7 @@ import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,25 +38,40 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
 
     @Override
     public Order createOrder(CreateOrderCommand command) {
-        List<OrderItem> items = command.items().stream()
-                .map(itemCmd -> {
-                    // Validate product exists and is available
-                    Product product = productRepository
-                            .findById(itemCmd.productId())
-                            .orElseThrow(() -> new ProductNotFoundException(itemCmd.productId()));
+        // Notification pattern: validate every line, collecting problems as we go, so
+        // the caller gets ALL bad lines at once instead of failing on the first one.
+        List<OrderItem> items = new ArrayList<>();
+        List<OrderItemError> errors = new ArrayList<>();
 
-                    if (!product.isOrderable()) {
-                        throw new ProductNotAvailableException(itemCmd.productId());
-                    }
+        for (var itemCmd : command.items()) {
+            Optional<Product> found = productRepository.findById(itemCmd.productId());
+            if (found.isEmpty()) {
+                errors.add(new OrderItemError(itemCmd.productId(),
+                        OrderItemErrorCode.PRODUCT_NOT_FOUND,
+                        "Product not found: " + itemCmd.productId()));
+                continue;
+            }
 
-                    return new OrderItem(
-                            product.getId(),
-                            product.getName(),
-                            itemCmd.quantity(),
-                            itemCmd.unitPrice()
-                    );
-                })
-                .toList();
+            Product product = found.get();
+            if (!product.isOrderable()) {
+                errors.add(new OrderItemError(itemCmd.productId(),
+                        OrderItemErrorCode.PRODUCT_NOT_AVAILABLE,
+                        "Product not available: " + itemCmd.productId()));
+                continue;
+            }
+
+            items.add(new OrderItem(
+                    product.getId(),
+                    product.getName(),
+                    itemCmd.quantity(),
+                    itemCmd.unitPrice()
+            ));
+        }
+
+        // One aggregate failure carrying every collected error — nothing is persisted.
+        if (!errors.isEmpty()) {
+            throw new OrderValidationException(errors);
+        }
 
         Order order = Order.create(command.customerId(), items);
         Order saved = orderRepository.save(order);
@@ -125,15 +141,31 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         }
     }
 
-    public static class ProductNotFoundException extends RuntimeException {
-        public ProductNotFoundException(UUID productId) {
-            super("Product not found: " + productId);
-        }
+    /** Machine-readable code for a single invalid order line. Extend as new rules appear. */
+    public enum OrderItemErrorCode {
+        PRODUCT_NOT_FOUND,
+        PRODUCT_NOT_AVAILABLE
     }
 
-    public static class ProductNotAvailableException extends RuntimeException {
-        public ProductNotAvailableException(UUID productId) {
-            super("Product not available: " + productId);
+    /** One collected validation error, tied to the offending product line. */
+    public record OrderItemError(UUID productId, OrderItemErrorCode code, String message) {}
+
+    /**
+     * Aggregate of every validation error found while building an order.
+     * <p>
+     * Thrown once, at the end of validation, so the caller sees all bad lines at once
+     * (Notification pattern) instead of discovering them one request at a time.
+     */
+    public static class OrderValidationException extends RuntimeException {
+        private final transient List<OrderItemError> errors;
+
+        public OrderValidationException(List<OrderItemError> errors) {
+            super("Order validation failed with " + errors.size() + " error(s)");
+            this.errors = List.copyOf(errors);
+        }
+
+        public List<OrderItemError> getErrors() {
+            return errors;
         }
     }
 }

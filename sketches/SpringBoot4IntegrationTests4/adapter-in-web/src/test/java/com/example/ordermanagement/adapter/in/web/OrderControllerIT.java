@@ -131,7 +131,7 @@ class OrderControllerIT extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("POST /api/orders - returns 422 when product is not available")
+    @DisplayName("POST /api/orders - returns 422 with error when product is not available")
     void createOrder_productNotAvailable() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "customer-1",
@@ -142,11 +142,14 @@ class OrderControllerIT extends IntegrationTestBase {
                         .with(JwtHelper.customerToken("customer-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_NOT_AVAILABLE")))
+                .andExpect(jsonPath("$.errors[0].productId", is(PRODUCT_UNAVAILABLE.toString())));
     }
 
     @Test
-    @DisplayName("POST /api/orders - returns 422 when product does not exist")
+    @DisplayName("POST /api/orders - returns 422 with error when product does not exist")
     void createOrder_productNotFound() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
                 "customer-1",
@@ -157,7 +160,31 @@ class OrderControllerIT extends IntegrationTestBase {
                         .with(JwtHelper.customerToken("customer-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_NOT_FOUND")));
+    }
+
+    @Test
+    @DisplayName("POST /api/orders - collects ALL invalid-line errors and returns 422")
+    void createOrder_multipleInvalidItems_collectsAllErrors() throws Exception {
+        CreateOrderRequest request = new CreateOrderRequest(
+                "customer-1",
+                List.of(
+                        new OrderItemRequest(PRODUCT_UNKNOWN, 1, new BigDecimal("10.00")),      // not found
+                        new OrderItemRequest(PRODUCT_UNAVAILABLE, 2, new BigDecimal("10.00")),  // not available
+                        new OrderItemRequest(PRODUCT_ID, 1, new BigDecimal("49.99"))            // valid
+                )
+        );
+
+        mockMvc.perform(post("/api/orders")
+                        .with(JwtHelper.customerToken("customer-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.errors", hasSize(2)))
+                .andExpect(jsonPath("$.errors[*].code",
+                        containsInAnyOrder("PRODUCT_NOT_FOUND", "PRODUCT_NOT_AVAILABLE")));
     }
 
     // ── GET /api/orders/{id} ──────────────────────────────────────────────────
