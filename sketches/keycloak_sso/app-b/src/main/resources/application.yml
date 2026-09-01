@@ -1,0 +1,80 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: app-b
+  thymeleaf:
+    cache: false
+
+  # Temporary database: in-memory, rebuilt at every start, discarded at shutdown.
+  datasource:
+    url: jdbc:h2:mem:appb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    # Without this, data.sql runs BEFORE Hibernate creates the tables and startup fails with
+    # "Table REPORT not found". Deferring makes script initialization wait for the schema.
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+
+  security:
+    oauth2:
+      # --- Face 1: OAuth2 client, for humans with a browser -------------------------------
+      # Same realm as Application A. That single fact is what produces SSO: Keycloak already has
+      # a session cookie for this realm, recognises it, and issues Application B its own tokens
+      # without prompting for a password.
+      client:
+        provider:
+          keycloak-a:
+            issuer-uri: http://localhost:8080/realms/sso-domain-a
+        registration:
+          keycloak-a:
+            provider: keycloak-a
+            client-id: app-b-web
+            client-secret: app-b-web-secret
+            client-name: Sign in with SSO Domain A
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+
+      # --- Face 2: resource server, for bearer tokens ------------------------------------
+      resourceserver:
+        jwt:
+          # Tokens are accepted only from this issuer. A token minted by SSO domain C is rejected
+          # here, which is exactly what "separate SSO domain" has to mean in practice.
+          issuer-uri: http://localhost:8080/realms/sso-domain-a
+          # Audience validation. Keycloak issues "aud": "account" by default, so this only passes
+          # because the app-a-m2m and app-*-web clients carry a hardcoded audience mapper adding
+          # "app-b-api". Remove either side and every call turns into a 401 - see
+          # docs/troubleshooting.md.
+          audiences:
+            - app-b-api
+
+          # Roles are read by an explicit converter in SecurityConfig, because Keycloak nests them
+          # in realm_access.roles. Spring Boot 4 can also do it declaratively:
+          #   authorities-claim-expressions: ["realm_access.roles"]
+          #   authority-prefix: "ROLE_"
+          # The Java converter is kept here so the mapping is visible rather than magic.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.example.sso: INFO
+    # org.springframework.security: DEBUG

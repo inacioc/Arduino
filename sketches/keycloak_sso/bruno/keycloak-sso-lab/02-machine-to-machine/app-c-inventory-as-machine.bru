@@ -1,0 +1,68 @@
+meta {
+  name: App C inventory as app-a-federated-m2m (domain C)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{appC}}/api/inventory
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{tokenUrlC}}
+  client_id: {{clientCMachine}}
+  client_secret: {{clientCMachineSecret}}
+  scope:
+  credentials_placement: body
+  credentials_id: domainC-machine
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("a DIFFERENT identity provider issued this token", function() {
+    expect(res.getBody().caller.issuer)
+      .to.equal("http://localhost:8090/realms/sso-domain-c");
+  });
+
+  test("Application A used its foreign credentials", function() {
+    expect(res.getBody().caller.clientId).to.equal("app-a-federated-m2m");
+    expect(res.getBody().caller.serviceAccount).to.equal(true);
+  });
+
+  test("the role comes from domain C's own role list", function() {
+    expect(res.getBody().caller.roles).to.include("app-c-api-reader");
+  });
+
+  test("audience is domain C's resource, not domain A's", function() {
+    const audience = res.getBody().caller.audience;
+    expect(audience).to.include("app-c-api");
+    expect(audience).to.not.include("app-b-api");
+  });
+
+  test("inventory came back", function() {
+    expect(res.getBody().items).to.have.lengthOf.at.least(1);
+  });
+}
+
+docs {
+  Flow 3 in ../../../docs/flows.md. Equivalent to: .\scripts\get-token.ps1 -Scenario machine-to-c
+
+  Compare this file with app-b-reports-as-machine.bru side by side: only the URLs and credentials
+  differ. There is no federation and no trust between the two Keycloak instances - Application A
+  simply holds a second set of credentials, issued by domain C's administrator. That is the entire
+  cross-domain machine-to-machine story.
+
+  Use a distinct credentials_id from the domain A requests. Sharing one would make Bruno reuse the
+  cached token, and you would end up presenting a domain A token to Application C - which is a real
+  test, but it belongs in 04-negative/app-c-with-domain-a-token.bru, not here.
+}

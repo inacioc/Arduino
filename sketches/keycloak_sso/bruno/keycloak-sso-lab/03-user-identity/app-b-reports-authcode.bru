@@ -1,0 +1,71 @@
+meta {
+  name: App B reports via authorization_code (real login)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{appB}}/api/reports
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: authorization_code
+  callback_url: {{brunoCallback}}
+  authorization_url: {{authUrlA}}
+  access_token_url: {{tokenUrlA}}
+  refresh_token_url: {{tokenUrlA}}
+  client_id: {{clientAWeb}}
+  client_secret: {{clientAWebSecret}}
+  scope: openid profile email
+  state: bruno-lab-state
+  pkce: true
+  credentials_placement: body
+  credentials_id: domainA-authcode
+  token_source: access_token
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("whoever logged in is who Application B sees", function() {
+    const caller = res.getBody().caller;
+    expect(caller.serviceAccount).to.equal(false);
+    expect(caller.username).to.equal("alice");
+  });
+
+  test("the token came from the browser client", function() {
+    expect(res.getBody().caller.clientId).to.equal("app-a-web");
+  });
+}
+
+docs {
+  INTERACTIVE - this request cannot run headlessly. Exclude it from `bru run` in CI, or accept that
+  it will fail there. The other requests in this collection are all automatable.
+
+  This is how the real applications authenticate people, unlike the password grant used by
+  app-b-reports-as-alice.bru. Send the request (auto_fetch_token is on) or click "Get Access Token":
+  Bruno opens Keycloak's own login page. Sign in as alice / Alice#2026.
+
+  pkce: true matches the app-a-web client, which sets pkce.code.challenge.method = S256 in the realm.
+
+  callback_url is http://localhost:9876/callback and is already registered on app-a-web in
+  ../../../keycloak/domain-a/realm-sso-domain-a.json. Bruno never actually navigates to it - it
+  intercepts the redirect internally - but Keycloak still validates redirect_uri against the
+  client's registered list, so the entry has to exist or you get "Invalid parameter: redirect_uri"
+  before the login form even appears.
+
+  If you hit that error anyway, your running Keycloak was imported before that entry was added:
+  --import-realm skips realms that already exist. Run .\scripts\reset-keycloak.ps1 with both
+  Keycloak windows stopped, or add the URI by hand in the admin console. See ../../../bruno.md.
+
+  The test expects alice because that is who the docs tell you to sign in as. Log in as dave and the
+  username assertion fails - which is correct behaviour, not a broken test.
+}

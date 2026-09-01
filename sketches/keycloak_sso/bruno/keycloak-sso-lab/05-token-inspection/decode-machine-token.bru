@@ -1,0 +1,98 @@
+meta {
+  name: Fetch and decode a machine token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{tokenUrlA}}
+  body: form-urlencoded
+  auth: none
+}
+
+headers {
+  Content-Type: application/x-www-form-urlencoded
+}
+
+body:form-urlencoded {
+  grant_type: client_credentials
+  client_id: {{clientAMachine}}
+  client_secret: {{clientAMachineSecret}}
+}
+
+vars:post-response {
+  machineAccessToken: $res.body.access_token
+}
+
+script:post-response {
+  // A JWT is three base64url segments; the middle one is the readable payload.
+  // Decoding is NOT validating - only the resource server's signature check makes a token
+  // trustworthy. This is for looking, not for deciding anything.
+  function decodeJwtPayload(token) {
+    const segment = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = segment + '='.repeat((4 - (segment.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  }
+
+  const claims = decodeJwtPayload(res.getBody().access_token);
+  bru.setVar('tokenClaims', claims);
+
+  console.log('iss                :', claims.iss);
+  console.log('aud                :', claims.aud);
+  console.log('azp                :', claims.azp);
+  console.log('sub                :', claims.sub);
+  console.log('preferred_username :', claims.preferred_username);
+  console.log('realm roles        :', claims.realm_access && claims.realm_access.roles);
+  console.log('expires            :', new Date(claims.exp * 1000).toISOString());
+}
+
+tests {
+  test("Keycloak returned a bearer token", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().token_type.toLowerCase()).to.equal("bearer");
+  });
+
+  test("the audience mapper put app-b-api in aud", function() {
+    const claims = bru.getVar('tokenClaims');
+    const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    expect(aud).to.include("app-b-api");
+  });
+
+  test("the service account got its realm role", function() {
+    expect(bru.getVar('tokenClaims').realm_access.roles).to.include("app-b-api-reader");
+  });
+
+  test("this token represents an application", function() {
+    const claims = bru.getVar('tokenClaims');
+    expect(claims.preferred_username).to.equal("service-account-" + claims.azp);
+  });
+
+  test("issued by domain A", function() {
+    expect(bru.getVar('tokenClaims').iss)
+      .to.equal("http://localhost:8080/realms/sso-domain-a");
+  });
+}
+
+docs {
+  The raw-token view. Equivalent to: .\scripts\get-token.ps1 -Scenario decode
+
+  This talks to Keycloak's token endpoint directly rather than letting auth:oauth2 manage things,
+  so you can see the response Keycloak actually sends and read every claim.
+
+  The two assertions in the middle check the two Keycloak mappers that are easy to forget, directly
+  at the source rather than inferred from a downstream 401:
+
+    - the audience mapper, without which every API call is a bare 401
+    - the service-account role assignment, without which every API call is a 403
+
+  See ../../../keycloak/domain-a/README.md for what those mappers look like in the admin console.
+
+  Worth breaking on purpose once: remove the audience-app-b-api mapper from app-a-m2m in the
+  console, re-run this request, and watch the aud test fail while everything else still passes.
+
+  The captured machineAccessToken variable is reusable - any later request can send
+  Authorization: Bearer {{machineAccessToken}} by hand instead of letting auth:oauth2 manage it.
+
+  If atob is unavailable in your Bruno version's sandbox, run with --sandbox=developer and use
+  Buffer.from(segment, 'base64').toString('utf8') instead.
+}

@@ -1,0 +1,82 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: app-a
+  thymeleaf:
+    cache: false
+
+  security:
+    oauth2:
+      client:
+        # Two providers = two SSO domains. Each issuer-uri is fetched at startup to discover the
+        # authorization, token and JWKS endpoints, so both Keycloak instances must be running
+        # before this application starts.
+        provider:
+          keycloak-a:
+            issuer-uri: http://localhost:8080/realms/sso-domain-a
+          keycloak-c:
+            issuer-uri: http://localhost:8090/realms/sso-domain-c
+
+        registration:
+          # 1. Interactive login. The registration id (keycloak-a) is what makes the callback URL
+          #    /login/oauth2/code/keycloak-a - it must match the redirect URI registered on the
+          #    app-a-web client in the realm, character for character.
+          keycloak-a:
+            provider: keycloak-a
+            client-id: app-a-web
+            client-secret: app-a-web-secret
+            client-name: Sign in with SSO Domain A
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+
+          # 2. Application A's own identity inside SSO domain A, for the scheduled call to
+          #    Application B. No redirect URI and no scope: nobody logs in with this.
+          app-b-m2m:
+            provider: keycloak-a
+            client-id: app-a-m2m
+            client-secret: app-a-m2m-secret
+            client-name: Application A machine identity (domain A)
+            authorization-grant-type: client_credentials
+
+          # 3. Application A's identity inside the *other* SSO domain, for Application C.
+          #    Different provider, different client, different secret - nothing is shared with
+          #    domain A except this application holding both sets of credentials.
+          app-c-m2m:
+            provider: keycloak-c
+            client-id: app-a-federated-m2m
+            client-secret: app-a-federated-m2m-secret
+            client-name: Application A machine identity (domain C)
+            authorization-grant-type: client_credentials
+
+# Lab knobs. Intervals are deliberately long enough to read the logs and short enough to not wait.
+lab:
+  app-b:
+    base-url: http://localhost:8082
+    initial-delay-ms: 10000
+    schedule-ms: 30000
+  app-c:
+    base-url: http://localhost:8083
+    initial-delay-ms: 20000
+    schedule-ms: 30000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.example.sso: INFO
+    # Uncomment to watch the token requests and redirects as they happen. Very useful the first
+    # time something does not work; far too noisy afterwards.
+    # org.springframework.security: DEBUG
+    # org.springframework.web.client: DEBUG

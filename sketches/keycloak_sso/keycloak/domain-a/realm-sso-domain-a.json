@@ -1,0 +1,284 @@
+{
+  "realm": "sso-domain-a",
+  "displayName": "SSO Domain A (Application A + Application B)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "roles": {
+    "realm": [
+      {
+        "name": "app-a-user",
+        "description": "Allows interactive (browser) access to Application A."
+      },
+      {
+        "name": "app-b-user",
+        "description": "Allows interactive (browser) access to Application B."
+      },
+      {
+        "name": "app-b-api-reader",
+        "description": "Read-only access to Application B's /api/** endpoints. Granted to the app-a-m2m service account, NOT to humans."
+      },
+      {
+        "name": "sso-admin",
+        "description": "Extra role used to show role-gated views inside an application."
+      }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "app-a-web",
+      "name": "Application A - browser client",
+      "description": "Confidential authorization_code client. This is what makes a human 'log in to Application A'.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-a-web-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "rootUrl": "http://localhost:8081",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:8081/login/oauth2/code/keycloak-a",
+        "http://localhost:9876/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8081"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8081/",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles-in-id-token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-app-b-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "app-b-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "app-b-web",
+      "name": "Application B - browser client",
+      "description": "Confidential authorization_code client for Application B. Separate client, same realm as app-a-web -> that is what produces SSO.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-b-web-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "rootUrl": "http://localhost:8082",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:8082/login/oauth2/code/keycloak-a"
+      ],
+      "webOrigins": [
+        "http://localhost:8082"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8082/",
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles-in-id-token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-app-b-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "app-b-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "app-a-m2m",
+      "name": "Application A - machine identity (intra-domain)",
+      "description": "client_credentials only. This is the identity Application A's scheduled task uses to call Application B. No human can log in with it: standard flow and direct access grants are OFF.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-a-m2m-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "protocolMappers": [
+        {
+          "name": "audience-app-b-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "app-b-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "app-b-api",
+      "name": "Application B - API (audience / resource marker)",
+      "description": "Has no login flow of its own. It exists so that 'app-b-api' is a resolvable audience value, which is what Application B validates in incoming access tokens.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-b-api-not-used",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Anderson",
+      "email": "alice@domain-a.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Alice#2026",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "app-a-user",
+        "app-b-user"
+      ]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Brown",
+      "email": "bob@domain-a.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Bob#2026",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "app-a-user"
+      ]
+    },
+    {
+      "username": "carol",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Carol",
+      "lastName": "Clark",
+      "email": "carol@domain-a.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Carol#2026",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "app-b-user"
+      ]
+    },
+    {
+      "username": "dave",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dave",
+      "lastName": "Davies",
+      "email": "dave@domain-a.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Dave#2026",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "app-a-user",
+        "app-b-user",
+        "sso-admin"
+      ]
+    },
+    {
+      "username": "service-account-app-a-m2m",
+      "enabled": true,
+      "serviceAccountClientId": "app-a-m2m",
+      "realmRoles": [
+        "app-b-api-reader"
+      ]
+    }
+  ]
+}

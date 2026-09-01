@@ -1,0 +1,51 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application A &middot; scheduled machine calls</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header>
+    <h1>Application A &middot; scheduled machine-to-machine calls</h1>
+    <div class="sub">no user, no session, no browser &mdash; just Application A proving who it is</div>
+</header>
+
+<nav>
+    <a th:href="@{/}">Home</a>
+    <a th:href="@{/ui/profile}">Your identity</a>
+    <a th:href="@{/ui/call-app-b-as-me}">Call Application B as me</a>
+    <a th:href="@{/logout}">Log out</a>
+</nav>
+
+<main>
+    <div class="note">
+        Both calls below run on a scheduler thread. There is no logged-in user to borrow an identity
+        from, so Application A authenticates as <em>itself</em> using the
+        <code>client_credentials</code> grant: it posts its client id and secret to a token endpoint
+        and gets back a token that represents an application. Keycloak does still put a
+        <code>preferred_username</code> in the token &mdash; but it is the synthetic
+        <code>service-account-&lt;clientId&gt;</code> user that backs the client, not a person who
+        could ever sit at a login form.
+    </div>
+
+    <h2>1. Application B &mdash; same SSO domain</h2>
+    <p class="muted">Credentials issued by Keycloak on :8080. Application A uses the
+        <code>app-a-m2m</code> client, which is a different client from the one humans log in with,
+        and whose service account holds only the <code>app-b-api-reader</code> role.</p>
+    <div th:replace="~{fragments/outcome :: outcome(${appB}, 'machine')}"></div>
+
+    <h2>2. Application C &mdash; the other SSO domain</h2>
+    <p class="muted">Credentials issued by the <em>second</em> Keycloak on :8090, under the
+        <code>app-a-federated-m2m</code> client. Nothing is shared between the two domains: no keys,
+        no users, no sessions. Application A simply holds two independent sets of credentials.
+        Compare the <code>iss</code> value with the one above.</p>
+    <div th:replace="~{fragments/outcome :: outcome(${appC}, 'machine')}"></div>
+
+    <h2>Why not relay a user token here?</h2>
+    <p class="muted">A scheduled job has no user context, so there is no user token to forward. Even
+        if one had been stashed at login, the job would start failing the moment that user logged
+        out or their refresh token expired. Background work needs an identity of its own, which is
+        exactly what a service account is.</p>
+</main>
+</body>
+</html>

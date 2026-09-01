@@ -1,0 +1,73 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application A &middot; token relay</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header>
+    <h1>Application A &middot; calling Application B as you</h1>
+    <div class="sub">same endpoint as the scheduler, different identity</div>
+</header>
+
+<nav>
+    <a th:href="@{/}">Home</a>
+    <a th:href="@{/ui/profile}">Your identity</a>
+    <a th:href="@{/ui/machine-calls}">Scheduled machine calls</a>
+    <a th:href="@{/ui/call-app-b-as-me}">Call again</a>
+    <a th:href="@{/logout}">Log out</a>
+</nav>
+
+<main>
+    <div class="note">
+        Both cards below hit <code>GET /api/reports</code> on Application B. The only difference is
+        whose access token was attached. Application B's <code>/api/reports</code> accepts either
+        <code>app-b-api-reader</code> (machines) or <code>app-b-user</code> (humans), which is why
+        the same endpoint can serve both.
+    </div>
+
+    <h2>Called with your token, just now</h2>
+    <p class="muted">The token <code>oauth2Login</code> stored for you when you signed in is
+        forwarded downstream. Application B therefore knows exactly which human is behind the
+        request &mdash; useful for auditing and per-user authorization, and impossible with a
+        machine identity.</p>
+    <div th:replace="~{fragments/outcome :: outcome(${relayed}, 'user')}"></div>
+
+    <h2>Called with Application A's own identity, by the scheduler</h2>
+    <p class="muted">Same URL, same instant in the application's life, completely different
+        <code>sub</code> and <code>azp</code>.</p>
+    <div th:replace="~{fragments/outcome :: outcome(${machine}, 'machine')}"></div>
+
+    <h2>How to choose between the two</h2>
+    <table>
+        <tr>
+            <th></th>
+            <th>Application identity (client_credentials)</th>
+            <th>Delegated user identity (relay)</th>
+        </tr>
+        <tr>
+            <td class="key">Use when</td>
+            <td>Batch jobs, schedulers, system-to-system sync &mdash; work that is not on behalf of
+                anyone</td>
+            <td>The call exists only because a user asked for it, and downstream authorization or
+                auditing depends on which user</td>
+        </tr>
+        <tr>
+            <td class="key">Lifetime</td>
+            <td>Independent of any user; renews itself forever</td>
+            <td>Dies with the user's session or refresh token</td>
+        </tr>
+        <tr>
+            <td class="key">Downstream authorization</td>
+            <td>Coarse: whatever the service account was granted</td>
+            <td>Exactly the user's own permissions &mdash; no privilege escalation</td>
+        </tr>
+        <tr>
+            <td class="key">Risk if leaked</td>
+            <td>Full service-account access until the secret is rotated</td>
+            <td>Limited to one user, and short-lived</td>
+        </tr>
+    </table>
+</main>
+</body>
+</html>

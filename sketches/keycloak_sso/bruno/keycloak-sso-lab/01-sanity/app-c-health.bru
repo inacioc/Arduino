@@ -1,0 +1,30 @@
+meta {
+  name: App C health
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{appC}}/actuator/health
+  body: none
+  auth: none
+}
+
+assert {
+  $res.status: 200
+  $res.body.status: UP
+}
+
+tests {
+  test("Application C is up", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("UP");
+  });
+}
+
+docs {
+  Same idea as app-b-health.bru, for the application that lives in the other SSO domain.
+
+  Application C is a pure resource server - no login page, no oauth2 client - so /actuator/health is
+  the only endpoint it exposes without a bearer token.
+}

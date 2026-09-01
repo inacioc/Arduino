@@ -1,0 +1,59 @@
+meta {
+  name: A domain A token must NOT open Application C
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{appC}}/api/inventory
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{tokenUrlA}}
+  client_id: {{clientAMachine}}
+  client_secret: {{clientAMachineSecret}}
+  scope:
+  credentials_placement: body
+  credentials_id: domainA-machine-crossdomain
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 401
+}
+
+tests {
+  test("the foreign domain rejects it outright", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("rejected as unauthenticated, not merely unauthorized", function() {
+    // 403 here would mean Application C had accepted the token as authentic and only objected to
+    // the roles - which would mean the two domains were not isolated after all.
+    expect(res.getStatus()).to.not.equal(403);
+  });
+}
+
+docs {
+  The headline test of the whole lab. Equivalent to:
+  .\scripts\get-token.ps1 -Scenario cross-domain-rejected
+
+  A perfectly valid token - the very same one that opens Application B without complaint in
+  ../02-machine-to-machine/app-b-reports-as-machine.bru - presented to an application in the other
+  SSO domain. Rejected before any role is even considered: wrong issuer, and signed with a key
+  Application C never fetches.
+
+  This is what "separate SSO domain" means in practice, as opposed to just two folders of config.
+  Pair it with ../02-machine-to-machine/app-c-inventory-as-machine.bru, which succeeds against this
+  exact URL using domain C credentials.
+
+  credentials_id is deliberately distinct from the domain A machine requests. Bruno caches tokens
+  per credentials_id, and sharing one across folders would make the outcome depend on which request
+  ran first.
+}

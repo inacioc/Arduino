@@ -1,0 +1,30 @@
+meta {
+  name: App B health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{appB}}/actuator/health
+  body: none
+  auth: none
+}
+
+assert {
+  $res.status: 200
+  $res.body.status: UP
+}
+
+tests {
+  test("Application B is up", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("UP");
+  });
+}
+
+docs {
+  No token, and no token needed: /actuator/health is permitAll in Application B's browser chain.
+
+  If this fails, nothing else in the collection will pass - start the applications first. See
+  ../../../README.md for the startup order.
+}

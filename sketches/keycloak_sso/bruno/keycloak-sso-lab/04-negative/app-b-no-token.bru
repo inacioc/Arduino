@@ -1,0 +1,36 @@
+meta {
+  name: App B without a token is 401
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{appB}}/api/reports
+  body: none
+  auth: none
+}
+
+assert {
+  $res.status: 401
+}
+
+tests {
+  test("unauthenticated, and told so honestly", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+
+  test("401, not a 302 redirect to a login page", function() {
+    expect(res.getStatus()).to.not.equal(302);
+  });
+}
+
+docs {
+  Equivalent to: .\scripts\get-token.ps1 -Scenario no-token
+
+  The second assertion guards a real mistake. Application B has two filter chains, and the /api/**
+  one is declared @Order(1) precisely so bearer-token requests are not swallowed by the browser
+  chain. Swap the orders and this request starts answering 302 to Keycloak's login form - useless to
+  an API client, and one of the most common Spring Security misconfigurations.
+
+  See ../../../docs/troubleshooting.md, "My API returns 302 to the login page instead of 401".
+}

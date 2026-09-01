@@ -1,0 +1,58 @@
+meta {
+  name: App B reports as bob is 403
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{appB}}/api/reports
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: password
+  access_token_url: {{tokenUrlA}}
+  username: {{bobUser}}
+  password: {{bobPassword}}
+  client_id: {{clientAWeb}}
+  client_secret: {{clientAWebSecret}}
+  scope: openid profile email
+  credentials_placement: body
+  credentials_id: domainA-bob
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 403
+}
+
+tests {
+  test("bob is authenticated but not authorized: 403, not 401", function() {
+    expect(res.getStatus()).to.equal(403);
+  });
+
+  test("Keycloak issued him a token quite happily", function() {
+    // If the token request itself had failed, Bruno would not have reached the API at all and the
+    // status would be 401. Getting a 403 proves the token was minted and accepted as authentic.
+    expect(res.getStatus()).to.not.equal(401);
+  });
+}
+
+docs {
+  Bob's token is completely valid - he is a real user of SSO domain A and Keycloak issued it without
+  complaint. He simply lacks the app-b-user role, so Application B refuses him.
+
+  401 would mean "I do not know who you are". 403 means "I know exactly who you are, and no".
+  Telling those two apart is the fastest way to locate a problem; see ../../../docs/troubleshooting.md.
+
+  carol is the mirror case: she holds app-b-user but not app-a-user, so she is welcome here and
+  refused by Application A. Swap the credentials above to {{carolUser}} / {{carolPassword}} (already
+  in environments/local.bru) and this request turns into a 200.
+
+  A distinct credentials_id from alice's request is essential. Sharing one would hand Bruno alice's
+  cached token, and this test would "pass" as a 200 for entirely the wrong reason.
+}

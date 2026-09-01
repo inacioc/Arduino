@@ -1,0 +1,29 @@
+meta {
+  name: App C without a token is 401
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{appC}}/api/inventory
+  body: none
+  auth: none
+}
+
+assert {
+  $res.status: 401
+}
+
+tests {
+  test("unauthenticated", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+}
+
+docs {
+  The same check against the application in the other SSO domain.
+
+  Application C has only one filter chain and no login page at all, so there is no browser chain
+  that could accidentally turn this into a redirect. It is stateless by construction: no token, no
+  entry.
+}

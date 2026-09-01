@@ -1,0 +1,149 @@
+{
+  "realm": "sso-domain-c",
+  "displayName": "SSO Domain C (Application C - foreign identity provider)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "roles": {
+    "realm": [
+      {
+        "name": "app-c-api-reader",
+        "description": "Read-only access to Application C's /api/** endpoints. Granted to Application A's foreign machine identity."
+      }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "app-a-federated-m2m",
+      "name": "Application A - machine identity in THIS domain",
+      "description": "Application A is a stranger here: it holds a completely separate set of credentials, issued by this identity provider, used only for the cross-domain scheduled call to Application C. Nothing about domain A is trusted by this realm.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-a-federated-m2m-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "protocolMappers": [
+        {
+          "name": "audience-app-c-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "app-c-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "app-c-api",
+      "name": "Application C - API (audience / resource marker)",
+      "description": "No login flow. Exists so 'app-c-api' resolves as an audience value that Application C can validate.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "app-c-api-not-used",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": [],
+      "webOrigins": []
+    },
+    {
+      "clientId": "domain-c-test-cli",
+      "name": "Domain C - test CLI (direct grant)",
+      "description": "Lab-only client with direct access grants enabled, so scripts/get-token.ps1 can fetch a USER token from this domain without a browser. Used to prove that a domain A user token is rejected by Application C while a domain C user token is accepted.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "domain-c-test-cli-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-app-c-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "app-c-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+
+  "users": [
+    {
+      "username": "frank",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Frank",
+      "lastName": "Fischer",
+      "email": "frank@domain-c.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Frank#2026",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "app-c-api-reader"
+      ]
+    },
+    {
+      "username": "service-account-app-a-federated-m2m",
+      "enabled": true,
+      "serviceAccountClientId": "app-a-federated-m2m",
+      "realmRoles": [
+        "app-c-api-reader"
+      ]
+    }
+  ]
+}

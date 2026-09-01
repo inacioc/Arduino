@@ -1,0 +1,7 @@
+target/
+*.log
+
+# Bruno CLI report output (see bruno.md)
+results.xml
+results.html
+results.json

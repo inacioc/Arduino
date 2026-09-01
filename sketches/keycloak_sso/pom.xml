@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.7</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.example.sso</groupId>
+    <artifactId>keycloak-sso-lab</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Keycloak SSO Lab - 3 applications across 2 SSO domains</name>
+
+    <!--
+      Learning lab. Three independently runnable Spring Boot applications:
+
+        app-a (:8081)  OIDC client in SSO domain A. Owns two scheduled machine-to-machine
+                       jobs (one intra-domain to app-b, one cross-domain to app-c) plus a
+                       user-triggered token-relay endpoint.
+        app-b (:8082)  Hybrid: OIDC client (browser SSO with app-a) AND resource server
+                       for /api/** validating domain A tokens.
+        app-c (:8083)  Resource server only, validating tokens from SSO domain C.
+
+      There is deliberately no shared "common" module: the JWT -> authorities converter is
+      a handful of lines, and duplicating it keeps each application readable on its own.
+    -->
+    <modules>
+        <module>app-a</module>
+        <module>app-b</module>
+        <module>app-c</module>
+    </modules>
+
+    <properties>
+        <java.version>25</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+</project>

@@ -1,0 +1,71 @@
+meta {
+  name: App B whoami as app-a-m2m (identity only)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{appB}}/api/whoami
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{tokenUrlA}}
+  client_id: {{clientAMachine}}
+  client_secret: {{clientAMachineSecret}}
+  scope:
+  credentials_placement: body
+  credentials_id: domainA-machine
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("identity is returned at the top level, not nested", function() {
+    const body = res.getBody();
+    expect(body.caller).to.equal(undefined);
+    expect(body).to.have.property("serviceAccount");
+    expect(body).to.have.property("clientId");
+  });
+
+  test("same machine identity as /api/reports reports", function() {
+    const body = res.getBody();
+    expect(body.serviceAccount).to.equal(true);
+    expect(body.clientId).to.equal("app-a-m2m");
+    expect(body.username).to.equal("service-account-app-a-m2m");
+    expect(body.issuer).to.equal("http://localhost:8080/realms/sso-domain-a");
+  });
+
+  test("claims that drive the authorization decision", function() {
+    expect(res.getBody().audience).to.include("app-b-api");
+    expect(res.getBody().roles).to.include("app-b-api-reader");
+  });
+}
+
+docs {
+  Identity only, no payload. Handy when you want the claims without the reports on top.
+
+  IMPORTANT - the two endpoints return DIFFERENT shapes, so assertions are not interchangeable:
+
+    GET /api/reports  ->  ResourceResponse { application, resource, caller {...}, items [...] }
+                          identity is NESTED:     res.getBody().caller.serviceAccount
+
+    GET /api/whoami   ->  CallerIdentity  { issuer, subject, username, clientId, audience,
+                                            roles, serviceAccount }
+                          identity is TOP LEVEL:  res.getBody().serviceAccount
+
+  Copying the .caller.* assertions from app-b-reports-as-machine.bru into this file would give you
+  tests that read undefined and pass without checking anything. The first test above guards exactly
+  that mistake.
+
+  This request deliberately shares credentials_id with app-b-reports-as-machine.bru: it is the same
+  client in the same SSO domain, so reusing the cached token is correct here.
+}

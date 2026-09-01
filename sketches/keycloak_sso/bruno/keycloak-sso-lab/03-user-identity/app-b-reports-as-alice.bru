@@ -1,0 +1,66 @@
+meta {
+  name: App B reports as alice (user identity)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{appB}}/api/reports
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: password
+  access_token_url: {{tokenUrlA}}
+  username: {{aliceUser}}
+  password: {{alicePassword}}
+  client_id: {{clientAWeb}}
+  client_secret: {{clientAWebSecret}}
+  scope: openid profile email
+  credentials_placement: body
+  credentials_id: domainA-alice
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("a human is behind this call", function() {
+    const caller = res.getBody().caller;
+    expect(caller.serviceAccount).to.equal(false);
+    expect(caller.username).to.equal("alice");
+  });
+
+  test("the token was issued to the browser client, not the machine client", function() {
+    expect(res.getBody().caller.clientId).to.equal("app-a-web");
+  });
+
+  test("alice carries her own roles, not the service account's", function() {
+    const roles = res.getBody().caller.roles;
+    expect(roles).to.include("app-b-user");
+    expect(roles).to.include("app-a-user");
+    expect(roles).to.not.include("app-b-api-reader");
+  });
+}
+
+docs {
+  Flow 4 in ../../../docs/flows.md. Equivalent to: .\scripts\get-token.ps1 -Scenario user-to-b
+
+  Same URL as ../02-machine-to-machine/app-b-reports-as-machine.bru. Run both and compare the caller
+  block: same endpoint, same instant, completely different sub, azp and roles. That is the whole
+  distinction between "the application did this" and "alice did this".
+
+  /api/reports accepts app-b-api-reader OR app-b-user, which is what lets one endpoint serve both a
+  machine and a human.
+
+  The password grant is enabled on app-a-web for testing only. It posts a password straight to the
+  token endpoint, bypassing SSO, MFA and consent, and is deprecated for production use. It is NOT
+  how the running applications authenticate anyone - they use authorization_code, which is what
+  app-b-reports-authcode.bru exercises.
+}

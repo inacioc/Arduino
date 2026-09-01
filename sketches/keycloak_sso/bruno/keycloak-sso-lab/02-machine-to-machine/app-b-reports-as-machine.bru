@@ -1,0 +1,71 @@
+meta {
+  name: App B reports as app-a-m2m (domain A)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{appB}}/api/reports
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: client_credentials
+  access_token_url: {{tokenUrlA}}
+  client_id: {{clientAMachine}}
+  client_secret: {{clientAMachineSecret}}
+  scope:
+  credentials_placement: body
+  credentials_id: domainA-machine
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("the caller is an application, not a person", function() {
+    const caller = res.getBody().caller;
+    expect(caller.serviceAccount).to.equal(true);
+    expect(caller.clientId).to.equal("app-a-m2m");
+    expect(caller.username).to.equal("service-account-app-a-m2m");
+  });
+
+  test("domain A issued the token", function() {
+    expect(res.getBody().caller.issuer)
+      .to.equal("http://localhost:8080/realms/sso-domain-a");
+  });
+
+  test("the machine holds only its machine role", function() {
+    const roles = res.getBody().caller.roles;
+    expect(roles).to.include("app-b-api-reader");
+    expect(roles).to.not.include("app-b-user");
+  });
+
+  test("the audience mapper did its job", function() {
+    expect(res.getBody().caller.audience).to.include("app-b-api");
+  });
+
+  test("business data came back", function() {
+    expect(res.getBody().items).to.have.lengthOf.at.least(1);
+  });
+}
+
+docs {
+  Flow 2 in ../../../docs/flows.md. Equivalent to: .\scripts\get-token.ps1 -Scenario machine-to-b
+
+  Note what is NOT here: no username, no password, no browser. The application authenticates with
+  its own client id and secret, and Keycloak returns a token representing the application.
+
+  Keycloak backs every service account with a synthetic user named service-account-<clientId>,
+  which is why a machine token still carries a preferred_username. That naming convention is how
+  Application B decides the serviceAccount flag it reports back.
+
+  Bruno fetches the token itself and caches it under credentials_id until it expires - you never
+  paste a token anywhere.
+}

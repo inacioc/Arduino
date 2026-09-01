@@ -1,0 +1,67 @@
+meta {
+  name: But a domain C user token DOES open Application C
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{appC}}/api/inventory
+  body: none
+  auth: oauth2
+}
+
+auth:oauth2 {
+  grant_type: password
+  access_token_url: {{tokenUrlC}}
+  username: {{frankUser}}
+  password: {{frankPassword}}
+  client_id: {{clientCTestCli}}
+  client_secret: {{clientCTestCliSecret}}
+  scope: openid profile email
+  credentials_placement: body
+  credentials_id: domainC-frank
+  token_placement: header
+  token_header_prefix: Bearer
+  auto_fetch_token: true
+  auto_refresh_token: true
+}
+
+assert {
+  $res.status: 200
+}
+
+tests {
+  test("a user of THIS domain is accepted", function() {
+    const caller = res.getBody().caller;
+    expect(caller.username).to.equal("frank");
+    expect(caller.serviceAccount).to.equal(false);
+  });
+
+  test("issued by domain C, not domain A", function() {
+    expect(res.getBody().caller.issuer)
+      .to.equal("http://localhost:8090/realms/sso-domain-c");
+  });
+
+  test("frank holds domain C's role", function() {
+    expect(res.getBody().caller.roles).to.include("app-c-api-reader");
+  });
+}
+
+docs {
+  The other half of the isolation proof, and the reason this file sits in 04-negative next to
+  app-c-with-domain-a-token.bru rather than in a folder of its own. Read the two together:
+
+    app-c-with-domain-a-token.bru   domain A machine token -> Application C  ->  401
+    app-c-inventory-as-frank.bru    domain C user token    -> Application C  ->  200
+
+  Without this one, a 401 in the other file proves very little - Application C might simply be
+  broken, or rejecting everything. Together they show the rejection is specifically about WHICH
+  identity provider vouched for the caller.
+
+  frank exists only in SSO domain C. He is not a user of domain A, and alice is not a user of this
+  domain; there is no federation between them. Completes the pair checked by
+  .\scripts\get-token.ps1 -Scenario cross-domain-rejected
+
+  domain-c-test-cli is a lab-only client with the direct access grant enabled, so a domain C user
+  token can be fetched without a browser. See ../../../keycloak/domain-c/README.md.
+}

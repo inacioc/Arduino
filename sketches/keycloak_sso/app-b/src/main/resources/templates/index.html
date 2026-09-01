@@ -1,0 +1,54 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application B</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header class="app-b">
+    <h1>Application B</h1>
+    <div class="sub">port 8082 &middot; OIDC client <em>and</em> resource server &middot; same SSO domain as Application A</div>
+</header>
+
+<main>
+    <div th:if="${user == null}">
+        <h2>Not signed in</h2>
+        <p class="muted">If you already signed in to Application A, click below: you will not be
+            asked for a password. Application B is a <em>different</em> client with its own secret,
+            but it trusts the same realm, and Keycloak still holds your session cookie.</p>
+        <p><a class="btn" th:href="@{/oauth2/authorization/keycloak-a}">Sign in with SSO domain A</a></p>
+    </div>
+
+    <div th:if="${user != null}">
+        <h2>Signed in</h2>
+        <p>Welcome, <strong th:text="${user.preferredUsername}">user</strong>.</p>
+        <p><a class="btn" th:href="@{/ui/reports}">View reports</a></p>
+    </div>
+
+    <h2>The two ways in</h2>
+    <table>
+        <tr>
+            <th>Path</th>
+            <th>Filter chain</th>
+            <th>Credential</th>
+            <th>Required role</th>
+        </tr>
+        <tr>
+            <td><code>/ui/**</code></td>
+            <td>browser chain (order 2)</td>
+            <td>session cookie from <code>oauth2Login</code></td>
+            <td><code>app-b-user</code></td>
+        </tr>
+        <tr>
+            <td><code>/api/**</code></td>
+            <td>API chain (order 1), stateless</td>
+            <td><code>Authorization: Bearer &lt;JWT&gt;</code></td>
+            <td><code>app-b-api-reader</code> or <code>app-b-user</code></td>
+        </tr>
+    </table>
+    <p class="muted">The API chain is declared first on purpose. If the browser chain matched
+        <code>/api/**</code> first, an API call with a bad token would get a 302 redirect to the
+        login page instead of an honest 401.</p>
+</main>
+</body>
+</html>

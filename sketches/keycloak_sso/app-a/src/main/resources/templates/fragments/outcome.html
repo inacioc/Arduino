@@ -1,0 +1,89 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Renders one CallOutcome. The "caller" block is the interesting part: it is Application B's or
+  Application C's own account of whose token arrived, echoed straight back from the validated JWT.
+-->
+<div th:fragment="outcome(outcome, badge)">
+
+    <div th:if="${outcome == null}" class="card">
+        <h3>No result yet</h3>
+        <p class="muted">The scheduled job has not run yet, or the application was just restarted.
+            Wait for the next interval and reload.</p>
+    </div>
+
+    <div th:if="${outcome != null}" class="card" th:classappend="${outcome.succeeded} ? 'ok' : 'bad'">
+        <h3>
+            <span class="tag" th:classappend="${outcome.succeeded} ? 'ok' : 'bad'"
+                  th:text="${outcome.succeeded} ? 'SUCCESS' : 'FAILED'">status</span>
+            <span th:if="${badge != null}" class="tag" th:classappend="${badge}"
+                  th:text="${badge == 'machine'} ? 'APPLICATION IDENTITY' : 'USER IDENTITY'">kind</span>
+        </h3>
+
+        <p><span class="muted">Attempted:</span> <span th:text="${outcome.label}">label</span></p>
+        <p><span class="muted">At:</span> <code th:text="${outcome.at}">time</code></p>
+        <p><span class="muted">Result:</span> <span th:text="${outcome.detail}">detail</span></p>
+
+        <div th:if="${outcome.response != null and outcome.response.caller != null}"
+             th:with="caller=${outcome.response.caller}">
+            <table>
+                <tr>
+                    <td class="key">issuer (iss)</td>
+                    <td><code th:text="${caller.issuer}">iss</code>
+                        <span class="muted"> &larr; which SSO domain vouched for us</span></td>
+                </tr>
+                <tr>
+                    <td class="key">client (azp)</td>
+                    <td><code th:text="${caller.clientId}">azp</code></td>
+                </tr>
+                <tr>
+                    <td class="key">subject (sub)</td>
+                    <td><code th:text="${caller.subject}">sub</code></td>
+                </tr>
+                <tr>
+                    <td class="key">preferred_username</td>
+                    <td>
+                        <code th:if="${caller.username != null}" th:text="${caller.username}">user</code>
+                        <span th:if="${caller.username == null}" class="muted">absent</span>
+                        <span th:if="${caller.serviceAccount}" class="muted">
+                            &larr; Keycloak names every service account
+                            <code>service-account-&lt;clientId&gt;</code>, so this is the application
+                            itself rather than a person</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="key">audience (aud)</td>
+                    <td><code th:text="${caller.audience}">aud</code></td>
+                </tr>
+                <tr>
+                    <td class="key">realm roles</td>
+                    <td><code th:text="${caller.roles}">roles</code></td>
+                </tr>
+                <tr>
+                    <td class="key">service account?</td>
+                    <td th:text="${caller.serviceAccount} ? 'yes - an application called us' : 'no - a human is behind this call'">x</td>
+                </tr>
+            </table>
+        </div>
+
+        <div th:if="${outcome.response != null and outcome.response.items != null and !outcome.response.items.isEmpty()}">
+            <p class="muted">Payload returned
+                (<span th:text="${outcome.response.resource}">resource</span>):</p>
+            <div class="wrap">
+                <table>
+                    <tr>
+                        <th th:each="key : ${outcome.response.items[0].keySet()}" th:text="${key}">col</th>
+                    </tr>
+                    <tr th:each="item : ${outcome.response.items}">
+                        <td th:each="key : ${outcome.response.items[0].keySet()}"
+                            th:text="${item.get(key)}">val</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

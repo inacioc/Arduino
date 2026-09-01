@@ -1,0 +1,50 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application A &middot; your identity</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header>
+    <h1>Application A &middot; your identity</h1>
+    <div class="sub">as told to us by SSO domain A</div>
+</header>
+
+<nav>
+    <a th:href="@{/}">Home</a>
+    <a th:href="@{/ui/machine-calls}">Scheduled machine calls</a>
+    <a th:href="@{/ui/call-app-b-as-me}">Call Application B as me</a>
+    <a th:href="${appBBaseUrl + '/ui/reports'}">Open Application B (proves SSO)</a>
+    <a th:href="@{/logout}">Log out</a>
+</nav>
+
+<main>
+    <div class="note">
+        Now click <strong>Open Application B</strong>. It is a different application, on a different
+        port, with its own Keycloak client &mdash; but because it trusts the same realm, you arrive
+        already logged in. Your browser never sent a password to it; Keycloak recognised its own SSO
+        cookie and issued Application B a fresh set of tokens.
+    </div>
+
+    <h2>Spring Security authorities</h2>
+    <p class="muted">Derived from the <code>realm_access.roles</code> claim by the authorities mapper.
+        If this list were empty, every <code>/ui/**</code> page would answer 403 despite a
+        successful login.</p>
+    <ul>
+        <li th:each="a : ${authorities}"><code th:text="${a}">ROLE_x</code></li>
+    </ul>
+
+    <h2>ID token claims</h2>
+    <p class="muted">The ID token answers "who is this person". It is meant for this application to
+        consume, and is never sent to Application B or C.</p>
+    <div class="wrap">
+        <table>
+            <tr th:each="claim : ${claims}">
+                <td class="key" th:text="${claim.key}">claim</td>
+                <td><code th:text="${claim.value}">value</code></td>
+            </tr>
+        </table>
+    </div>
+</main>
+</body>
+</html>

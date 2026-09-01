@@ -1,0 +1,27 @@
+meta {
+  type: collection
+}
+
+auth {
+  mode: none
+}
+
+docs {
+  Exercises the three applications and two SSO domains described in ../../README.md.
+
+  Every request states which identity it presents and which SSO domain issued it. Auth is left at
+  "none" here on purpose: different requests authenticate against different SSO domains, and putting
+  a single auth block at the collection level would hide the very distinction this lab is about.
+
+  Before running anything, start both Keycloak instances and Applications B and C:
+
+    .\keycloak\domain-a\start-keycloak-a.ps1
+    .\keycloak\domain-c\start-keycloak-c.ps1
+    .\scripts\run-app.ps1 b
+    .\scripts\run-app.ps1 c
+
+  Application A is not needed - no request here targets it. Its role in the lab (the scheduled
+  machine-to-machine jobs and the token-relay page) is observed in its own log and UI instead.
+
+  Full guide: ../../bruno.md
+}

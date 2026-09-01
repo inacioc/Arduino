@@ -1,0 +1,69 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application A</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header>
+    <h1>Application A</h1>
+    <div class="sub">port 8081 &middot; OIDC client in <strong>SSO domain A</strong> &middot; owns the scheduled machine-to-machine jobs</div>
+</header>
+
+<main>
+    <div th:if="${user == null}">
+        <h2>Not signed in</h2>
+        <p class="muted">This page is public so the "before login" state is visible. Signing in
+            redirects you to Keycloak on port 8080, which is the only place your password is ever
+            typed.</p>
+        <p><a class="btn" th:href="@{/oauth2/authorization/keycloak-a}">Sign in with SSO domain A</a></p>
+
+        <div class="note">
+            <strong>Test users in this domain</strong> &mdash;
+            <code>alice / Alice#2026</code> can use both applications,
+            <code>bob / Bob#2026</code> only this one,
+            <code>carol / Carol#2026</code> only Application B,
+            <code>dave / Dave#2026</code> is an admin of both.
+        </div>
+    </div>
+
+    <div th:if="${user != null}">
+        <h2>Signed in</h2>
+        <p>Welcome, <strong th:text="${user.preferredUsername}">user</strong>.</p>
+        <p>
+            <a class="btn" th:href="@{/ui/profile}">Your identity</a>
+            <a class="btn plain" th:href="@{/ui/machine-calls}">Scheduled machine calls</a>
+        </p>
+    </div>
+
+    <h2>What this application demonstrates</h2>
+    <table>
+        <tr>
+            <th>Flow</th>
+            <th>Who is authenticated</th>
+            <th>Where to see it</th>
+        </tr>
+        <tr>
+            <td>Browser SSO within one domain</td>
+            <td>A human, by Keycloak on :8080</td>
+            <td>Sign in here, then open Application B on :8082 &mdash; no second password prompt</td>
+        </tr>
+        <tr>
+            <td>Machine-to-machine, same domain</td>
+            <td>Application A itself (<code>app-a-m2m</code>)</td>
+            <td><a th:href="@{/ui/machine-calls}">Scheduled machine calls</a></td>
+        </tr>
+        <tr>
+            <td>Machine-to-machine, across domains</td>
+            <td>Application A, by Keycloak on :8090 (<code>app-a-federated-m2m</code>)</td>
+            <td><a th:href="@{/ui/machine-calls}">Scheduled machine calls</a></td>
+        </tr>
+        <tr>
+            <td>Delegated user identity (token relay)</td>
+            <td>The logged-in human, forwarded downstream</td>
+            <td><a th:href="@{/ui/call-app-b-as-me}">Call Application B as me</a></td>
+        </tr>
+    </table>
+</main>
+</body>
+</html>

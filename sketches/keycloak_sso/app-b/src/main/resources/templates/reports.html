@@ -1,0 +1,54 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Application B &middot; reports</title>
+    <link rel="stylesheet" th:href="@{/css/lab.css}">
+</head>
+<body>
+<header class="app-b">
+    <h1>Application B &middot; reports</h1>
+    <div class="sub">reached with a session cookie, not a bearer token</div>
+</header>
+
+<nav>
+    <a th:href="@{/}">Home</a>
+    <a href="http://localhost:8081/ui/profile">Back to Application A</a>
+    <a th:href="@{/logout}">Log out</a>
+</nav>
+
+<main>
+    <div class="note">
+        If you got here from Application A without typing a password, you have just seen SSO work.
+        Your browser was redirected to Keycloak, which recognised its own session cookie, and sent
+        you straight back with a fresh authorization code for <code>app-b-web</code>. Two separate
+        applications, two separate clients, two separate sessions &mdash; one login.
+    </div>
+
+    <h2>Signed in as</h2>
+    <p><strong th:text="${user.preferredUsername}">user</strong>
+        <span class="muted" th:text="'(' + ${user.email} + ')'">(email)</span></p>
+    <p class="muted">Authorities, mapped from <code>realm_access.roles</code>:</p>
+    <ul>
+        <li th:each="a : ${authorities}"><code th:text="${a}">ROLE_x</code></li>
+    </ul>
+
+    <h2>Reports</h2>
+    <p class="muted">The same rows Application A's scheduler receives from
+        <code>GET /api/reports</code> &mdash; same data, different door.</p>
+    <table>
+        <tr>
+            <th>#</th>
+            <th>Title</th>
+            <th>Owner</th>
+            <th>Status</th>
+        </tr>
+        <tr th:each="report : ${reports}">
+            <td th:text="${report.id}">1</td>
+            <td th:text="${report.title}">title</td>
+            <td th:text="${report.owner}">owner</td>
+            <td th:text="${report.status}">status</td>
+        </tr>
+    </table>
+</main>
+</body>
+</html>

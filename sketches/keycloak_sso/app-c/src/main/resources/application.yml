@@ -1,0 +1,48 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: app-c
+
+  datasource:
+    url: jdbc:h2:mem:appc;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    # Without this, data.sql runs BEFORE Hibernate creates the tables and startup fails.
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+
+  security:
+    oauth2:
+      # Resource server only - no "client" block at all, because Application C never initiates a
+      # login. These two properties are the entire trust configuration for the second SSO domain.
+      resourceserver:
+        jwt:
+          # Note the port: 8090, the *other* Keycloak. Spring fetches this issuer's JWKS at first
+          # use and validates signatures against it, so a token from domain A (:8080) cannot pass -
+          # wrong issuer, wrong signing key.
+          issuer-uri: http://localhost:8090/realms/sso-domain-c
+          audiences:
+            - app-c-api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.example.sso: INFO
+    # org.springframework.security: DEBUG
