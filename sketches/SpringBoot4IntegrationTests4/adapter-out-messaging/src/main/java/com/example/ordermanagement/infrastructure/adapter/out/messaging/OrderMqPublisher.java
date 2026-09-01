@@ -2,8 +2,8 @@ package com.example.ordermanagement.infrastructure.adapter.out.messaging;
 
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,7 +57,7 @@ public class OrderMqPublisher implements OrderEventPort {
             String payload = objectMapper.writeValueAsString(event);
             jmsTemplate.convertAndSend(orderEventsQueue, payload);
             log.info("Published event {} for order {}", event.eventType(), event.orderId());
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Failed to serialize order event", e);
         }
     }

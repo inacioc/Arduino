@@ -5,7 +5,7 @@ import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.infrastructure.item.ItemProcessor;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

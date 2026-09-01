@@ -9,7 +9,7 @@ import com.example.ordermanagement.support.JwtHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.jdbc.Sql;
 
@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(scripts = "/sql/clean-orders.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class OrderControllerIT extends IntegrationTestBase {
 
-    @MockBean
+    @MockitoBean
     private ProductRepositoryPort productRepository;
 
     private static final UUID PRODUCT_ID          = UUID.fromString("11111111-1111-1111-1111-111111111001");

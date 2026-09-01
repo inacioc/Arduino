@@ -1,16 +1,16 @@
 package com.example.ordermanagement.infrastructure.adapter.out.batch;
 
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
+import org.springframework.batch.core.job.Job;
+import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.batch.item.file.FlatFileItemReader;
-import org.springframework.batch.item.file.FlatFileItemWriter;
-import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
+import org.springframework.batch.infrastructure.item.ItemProcessor;
+import org.springframework.batch.infrastructure.item.file.FlatFileItemReader;
+import org.springframework.batch.infrastructure.item.file.FlatFileItemWriter;
+import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,7 +56,8 @@ public class OrderBatchConfig {
             FlatFileItemWriter<OrderStatusChangeResult> statusChangeWriter) {
 
         return new StepBuilder(STEP_NAME, jobRepository)
-                .<OrderStatusChangeRequest, OrderStatusChangeResult>chunk(CHUNK_SIZE, txManager)
+                .<OrderStatusChangeRequest, OrderStatusChangeResult>chunk(CHUNK_SIZE)
+                .transactionManager(txManager)
                 .reader(statusChangeReader)
                 .processor(statusChangeProcessor)
                 .writer(statusChangeWriter)

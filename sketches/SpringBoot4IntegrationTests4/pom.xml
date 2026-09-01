@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.3</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -21,7 +21,7 @@
         <java.version>17</java.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok.version>1.18.46</lombok.version>
-        <ibm-mq.version>3.3.3</ibm-mq.version>
+        <ibm-mq.version>4.1.0</ibm-mq.version>
     </properties>
 
     <!-- domain + persistence are libraries; each driving/runnable adapter is its
@@ -74,11 +74,6 @@
                 <groupId>com.ibm.mq</groupId>
                 <artifactId>mq-jms-spring-boot-starter</artifactId>
                 <version>${ibm-mq.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-postgresql</artifactId>
-                <version>11.17.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

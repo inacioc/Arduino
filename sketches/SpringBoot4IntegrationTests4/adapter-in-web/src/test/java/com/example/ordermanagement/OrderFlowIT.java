@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.test.context.jdbc.Sql;
@@ -53,7 +53,7 @@ class OrderFlowIT extends IntegrationTestBase {
 
     private static final UUID PROD_E2E = UUID.fromString("22222222-2222-2222-2222-2222222222e2");
 
-    @MockBean
+    @MockitoBean
     private ProductRepositoryPort productRepository;
 
     @Autowired

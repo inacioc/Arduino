@@ -5,7 +5,7 @@ import com.example.ordermanagement.domain.model.OrderItem;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.infrastructure.adapter.out.messaging.OrderEvent;
 import com.example.ordermanagement.messaging.MessagingApplication;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
