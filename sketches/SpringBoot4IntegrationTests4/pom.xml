@@ -22,17 +22,21 @@
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok.version>1.18.46</lombok.version>
         <ibm-mq.version>4.1.0</ibm-mq.version>
+        <spring-modulith.version>2.1.1</spring-modulith.version>
     </properties>
 
     <!-- domain + persistence are libraries; each driving/runnable adapter is its
          own executable Spring Boot application (web = REST server, batch = job
-         runner, messaging = JMS listener). -->
+         runner, messaging = JMS listener). adapter-events is a library too: the
+         Spring Modulith event-publication plumbing, shared by any module that
+         needs to publish or consume durable domain events. -->
     <modules>
         <module>domain</module>
         <module>adapter-out-persistence</module>
         <module>adapter-out-messaging</module>
         <module>adapter-out-batch</module>
         <module>adapter-in-web</module>
+        <module>adapter-events</module>
     </modules>
 
     <dependencyManagement>
@@ -62,6 +66,20 @@
                 <groupId>com.example</groupId>
                 <artifactId>order-adapter-out-batch</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.example</groupId>
+                <artifactId>order-adapter-events</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Spring Modulith BOM (2.1.x targets Spring Boot 4.0+/Framework 7) -->
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-bom</artifactId>
+                <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!-- Third-party not managed by the Spring Boot BOM -->

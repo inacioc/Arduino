@@ -24,6 +24,10 @@
             <groupId>com.example</groupId>
             <artifactId>order-adapter-out-persistence</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-events</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

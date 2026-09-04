@@ -25,3 +25,11 @@ spring:
       initialize-schema: always   # auto-create batch metadata tables
     job:
       enabled: false              # the job is launched explicitly, not on startup
+
+# Only read when the app is started with --spring.profiles.active=scheduler
+# (see SchedulingConfig / OrderConfirmationRequestPoller).
+app:
+  batch:
+    scheduler:
+      output-dir: ./batch-output
+      fixed-rate-ms: 60000

@@ -28,6 +28,10 @@
             <groupId>com.example</groupId>
             <artifactId>order-adapter-out-messaging</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-events</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
