@@ -126,6 +126,18 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         return orderRepository.save(order);
     }
 
+    @Override
+    public Order changeStatus(UUID orderId, OrderStatus target) {
+        Order order = findOrThrow(orderId);
+        OrderStatus previousStatus = order.getStatus();
+        order.advanceTo(target);
+        Order saved = orderRepository.save(order);
+        if (target == OrderStatus.COMPLETED && previousStatus != OrderStatus.COMPLETED) {
+            orderEvents.publishOrderCompleted(saved);
+        }
+        return saved;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Order findOrThrow(UUID orderId) {

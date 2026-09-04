@@ -2,7 +2,8 @@ package com.example.ordermanagement.infrastructure.adapter.out.batch;
 
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
-import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
+import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.infrastructure.item.ItemProcessor;
@@ -25,10 +26,13 @@ public class OrderStatusChangeProcessor
 
     private static final Logger log = LoggerFactory.getLogger(OrderStatusChangeProcessor.class);
 
-    private final OrderRepositoryPort orderRepository;
+    private final GetOrderUseCase getOrderUseCase;
+    private final ProcessOrderUseCase processOrderUseCase;
 
-    public OrderStatusChangeProcessor(OrderRepositoryPort orderRepository) {
-        this.orderRepository = orderRepository;
+    public OrderStatusChangeProcessor(GetOrderUseCase getOrderUseCase,
+                                       ProcessOrderUseCase processOrderUseCase) {
+        this.getOrderUseCase     = getOrderUseCase;
+        this.processOrderUseCase = processOrderUseCase;
     }
 
     @Override
@@ -49,24 +53,23 @@ public class OrderStatusChangeProcessor
                     request.orderId(), "", OrderStatusChangeResult.INVALID_TARGET_STATUS);
         }
 
-        Optional<Order> found = orderRepository.findById(orderId);
+        Optional<Order> found = getOrderUseCase.findById(orderId);
         if (found.isEmpty()) {
             return new OrderStatusChangeResult(
                     request.orderId(), "", OrderStatusChangeResult.ORDER_NOT_FOUND);
         }
 
-        Order order = found.get();
+        String presentStatus = found.get().getStatus().name();
         try {
-            order.advanceTo(target);
-            orderRepository.save(order);
+            Order updated = processOrderUseCase.changeStatus(orderId, target);
             return new OrderStatusChangeResult(
-                    order.getId().toString(), order.getStatus().name(),
+                    updated.getId().toString(), updated.getStatus().name(),
                     OrderStatusChangeResult.OK);
         } catch (IllegalStateException e) {
             log.debug("Illegal transition for order {} -> {}: {}",
                     orderId, target, e.getMessage());
             return new OrderStatusChangeResult(
-                    order.getId().toString(), order.getStatus().name(),
+                    orderId.toString(), presentStatus,
                     OrderStatusChangeResult.INVALID_TRANSITION);
         }
     }
