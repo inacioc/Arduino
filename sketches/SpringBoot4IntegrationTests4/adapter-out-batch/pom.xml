@@ -24,6 +24,17 @@
             <groupId>com.example</groupId>
             <artifactId>order-adapter-out-persistence</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-events</artifactId>
+        </dependency>
+        <!-- EventPublicationRegistry/TargetEventPublication (org.springframework.modulith.events.core)
+             come transitively via adapter-events only at runtime scope; the poller needs
+             them at compile time, so declare it directly here. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-events-core</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

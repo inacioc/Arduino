@@ -1,5 +1,6 @@
 package com.example.ordermanagement.domain.service;
 
+import com.example.ordermanagement.domain.event.OrderCreatedIntegrationEvent;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
@@ -12,8 +13,10 @@ import com.example.ordermanagement.domain.service.OrderDomainService.OrderItemEr
 import com.example.ordermanagement.domain.service.OrderDomainService.OrderValidationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +35,9 @@ class OrderDomainServiceTest {
     private final InMemoryOrderRepository orderRepository = new InMemoryOrderRepository();
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final CountingEventPort events = new CountingEventPort();
+    private final CapturingEventPublisher eventPublisher = new CapturingEventPublisher();
     private final OrderDomainService service =
-            new OrderDomainService(orderRepository, productRepository, events);
+            new OrderDomainService(orderRepository, productRepository, events, eventPublisher);
 
     private static final UUID KNOWN       = UUID.fromString("11111111-0000-0000-0000-000000000001");
     private static final UUID UNAVAILABLE = UUID.fromString("11111111-0000-0000-0000-000000000002");
@@ -53,6 +57,8 @@ class OrderDomainServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(orderRepository.count()).isEqualTo(1);
         assertThat(events.created).isEqualTo(1);
+        assertThat(eventPublisher.published).hasSize(1);
+        assertThat(eventPublisher.published.get(0).orderId()).isEqualTo(order.getId());
     }
 
     @Test
@@ -74,6 +80,7 @@ class OrderDomainServiceTest {
         // Nothing was persisted and no event fired
         assertThat(orderRepository.count()).isZero();
         assertThat(events.created).isZero();
+        assertThat(eventPublisher.published).isEmpty();
     }
 
     @Test
@@ -123,5 +130,16 @@ class OrderDomainServiceTest {
 
         @Override public void publishOrderCreated(Order order) { created++; }
         @Override public void publishOrderCompleted(Order order) { completed++; }
+    }
+
+    private static final class CapturingEventPublisher implements ApplicationEventPublisher {
+        final List<OrderCreatedIntegrationEvent> published = new ArrayList<>();
+
+        @Override
+        public void publishEvent(Object event) {
+            if (event instanceof OrderCreatedIntegrationEvent e) {
+                published.add(e);
+            }
+        }
     }
 }

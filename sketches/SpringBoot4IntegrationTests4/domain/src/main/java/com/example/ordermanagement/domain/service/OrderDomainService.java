@@ -1,5 +1,6 @@
 package com.example.ordermanagement.domain.service;
 
+import com.example.ordermanagement.domain.event.OrderCreatedIntegrationEvent;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderItem;
 import com.example.ordermanagement.domain.model.OrderStatus;
@@ -10,9 +11,11 @@ import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -25,13 +28,16 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
     private final OrderRepositoryPort orderRepository;
     private final ProductRepositoryPort productRepository;
     private final OrderEventPort orderEvents;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderDomainService(OrderRepositoryPort orderRepository,
                                ProductRepositoryPort productRepository,
-                               OrderEventPort orderEvents) {
+                               OrderEventPort orderEvents,
+                               ApplicationEventPublisher eventPublisher) {
         this.orderRepository   = orderRepository;
         this.productRepository = productRepository;
         this.orderEvents       = orderEvents;
+        this.eventPublisher    = eventPublisher;
     }
 
     // ── CreateOrderUseCase ────────────────────────────────────────────────────
@@ -77,6 +83,8 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         Order saved = orderRepository.save(order);
 
         orderEvents.publishOrderCreated(saved);
+        eventPublisher.publishEvent(new OrderCreatedIntegrationEvent(
+                saved.getId(), saved.getCustomerId(), LocalDateTime.now()));
         return saved;
     }
 

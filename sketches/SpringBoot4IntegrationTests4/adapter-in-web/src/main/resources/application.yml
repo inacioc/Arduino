@@ -29,6 +29,13 @@ spring:
           issuer-uri: http://localhost:8080/realms/order-realm
           jwk-set-uri: http://localhost:8080/realms/order-realm/protocol/openid-connect/certs
 
+  modulith:
+    events:
+      # If the app crashes after the order-creation transaction commits but before
+      # OrderCreatedEventListener runs, replay the missed event on next startup so the
+      # event_publication row still gets written for adapter-out-batch to find.
+      republish-outstanding-events-on-restart: true
+
 # IBM MQ connection (the web app publishes order events via the messaging adapter)
 ibm:
   mq:
