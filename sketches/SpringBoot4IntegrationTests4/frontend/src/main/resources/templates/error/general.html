@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head><title>Something went wrong</title></head>
+<body>
+<div layout:fragment="content">
+    <h1>Something went wrong</h1>
+    <p>The order service could not complete this request. Please try again.</p>
+    <a class="btn" th:href="@{/}">Back home</a>
+</div>
+</body>
+</html>

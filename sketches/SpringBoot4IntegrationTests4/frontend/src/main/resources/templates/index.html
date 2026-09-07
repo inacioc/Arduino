@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head><title>Home</title></head>
+<body>
+<div layout:fragment="content">
+    <h1>Order Management</h1>
+    <p>A server-rendered UI over adapter-in-web's REST API.</p>
+    <div class="cards">
+        <a class="card" th:href="@{/products}">
+            <h2>Products</h2>
+            <p>Browse and create products.</p>
+        </a>
+        <a class="card" th:href="@{/orders}">
+            <h2>Orders</h2>
+            <p>Browse orders and place new ones.</p>
+        </a>
+    </div>
+</div>
+</body>
+</html>

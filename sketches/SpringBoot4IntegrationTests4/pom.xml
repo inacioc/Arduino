@@ -23,13 +23,17 @@
         <lombok.version>1.18.46</lombok.version>
         <ibm-mq.version>4.1.0</ibm-mq.version>
         <spring-modulith.version>2.1.1</spring-modulith.version>
+        <thymeleaf-layout-dialect.version>3.4.0</thymeleaf-layout-dialect.version>
     </properties>
 
     <!-- domain + persistence are libraries; each driving/runnable adapter is its
          own executable Spring Boot application (web = REST server, batch = job
          runner, messaging = JMS listener). adapter-events is a library too: the
          Spring Modulith event-publication plumbing, shared by any module that
-         needs to publish or consume durable domain events. -->
+         needs to publish or consume durable domain events. frontend is deliberately
+         NOT one of these hexagon adapters: it is a separate application that only
+         ever talks HTTP+JSON to adapter-in-web's REST API and depends on none of
+         the modules above - see frontend/pom.xml. -->
     <modules>
         <module>domain</module>
         <module>adapter-out-persistence</module>
@@ -37,6 +41,7 @@
         <module>adapter-out-batch</module>
         <module>adapter-in-web</module>
         <module>adapter-events</module>
+        <module>frontend</module>
     </modules>
 
     <dependencyManagement>
@@ -92,6 +97,11 @@
                 <groupId>com.ibm.mq</groupId>
                 <artifactId>mq-jms-spring-boot-starter</artifactId>
                 <version>${ibm-mq.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>nz.net.ultraq.thymeleaf</groupId>
+                <artifactId>thymeleaf-layout-dialect</artifactId>
+                <version>${thymeleaf-layout-dialect.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

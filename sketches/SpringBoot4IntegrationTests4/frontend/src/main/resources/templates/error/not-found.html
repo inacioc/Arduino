@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head><title>Not found</title></head>
+<body>
+<div layout:fragment="content">
+    <h1>Not found</h1>
+    <p>That page doesn't exist, or the item it points to is gone.</p>
+    <a class="btn" th:href="@{/}">Back home</a>
+</div>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head><title>New order</title></head>
+<body>
+<div layout:fragment="content">
+    <h1>New order</h1>
+    <form th:action="@{/orders}" th:object="${orderForm}" method="post" id="order-form">
+        <div class="global-errors" th:if="${#fields.hasGlobalErrors()}">
+            <p class="field-error" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></p>
+        </div>
+
+        <div class="form-field">
+            <label for="customerId">Customer id</label>
+            <input type="text" id="customerId" th:field="*{customerId}" required/>
+            <span class="field-error" th:if="${#fields.hasErrors('customerId')}" th:errors="*{customerId}"></span>
+        </div>
+
+        <h2>Items</h2>
+        <table class="data-table" id="items-table">
+            <thead>
+            <tr><th>Product</th><th>Quantity</th><th>Unit price</th><th></th></tr>
+            </thead>
+            <tbody id="items-body">
+            <tr th:each="item, stat : *{items}" class="item-row">
+                <td>
+                    <select th:field="*{items[__${stat.index}__].productId}" class="product-select">
+                        <option value="">-- select --</option>
+                        <option th:each="product : ${products}"
+                                th:value="${product.id()}"
+                                th:attr="data-price=${product.price()}"
+                                th:text="${product.name()}"></option>
+                    </select>
+                    <span class="field-error"
+                          th:if="${#fields.hasErrors('items[__${stat.index}__].productId')}"
+                          th:errors="*{items[__${stat.index}__].productId}"></span>
+                </td>
+                <td>
+                    <input type="number" min="1" th:field="*{items[__${stat.index}__].quantity}" class="quantity-input"/>
+                    <span class="field-error"
+                          th:if="${#fields.hasErrors('items[__${stat.index}__].quantity')}"
+                          th:errors="*{items[__${stat.index}__].quantity}"></span>
+                </td>
+                <td>
+                    <input type="number" step="0.01" min="0.01" th:field="*{items[__${stat.index}__].unitPrice}" class="price-input"/>
+                    <span class="field-error"
+                          th:if="${#fields.hasErrors('items[__${stat.index}__].unitPrice')}"
+                          th:errors="*{items[__${stat.index}__].unitPrice}"></span>
+                </td>
+                <td><button type="button" class="btn btn-secondary remove-item">Remove</button></td>
+            </tr>
+            </tbody>
+        </table>
+        <button type="button" id="add-item" class="btn btn-secondary">Add item</button>
+
+        <div class="form-actions">
+            <button type="submit" class="btn">Create order</button>
+            <a class="btn btn-secondary" th:href="@{/orders}">Cancel</a>
+        </div>
+    </form>
+
+    <select id="product-template" hidden>
+        <option value="">-- select --</option>
+        <option th:each="product : ${products}"
+                th:value="${product.id()}"
+                th:attr="data-price=${product.price()}"
+                th:text="${product.name()}"></option>
+    </select>
+</div>
+<div layout:fragment="scripts">
+    <script th:src="@{/js/order-form.js}"></script>
+</div>
+</body>
+</html>

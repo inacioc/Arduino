@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
+<head><title>New product</title></head>
+<body>
+<div layout:fragment="content">
+    <h1>New product</h1>
+    <form th:action="@{/products}" th:object="${productForm}" method="post">
+        <div class="global-errors" th:if="${#fields.hasGlobalErrors()}">
+            <p class="field-error" th:each="err : ${#fields.globalErrors()}" th:text="${err}"></p>
+        </div>
+
+        <div class="form-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" th:field="*{name}" required maxlength="200"/>
+            <span class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+        </div>
+
+        <div class="form-field">
+            <label for="price">Price</label>
+            <input type="number" id="price" th:field="*{price}" step="0.01" min="0.01" required/>
+            <span class="field-error" th:if="${#fields.hasErrors('price')}" th:errors="*{price}"></span>
+        </div>
+
+        <div class="form-field form-check">
+            <label>
+                <input type="checkbox" th:field="*{available}"/> Available
+            </label>
+        </div>
+
+        <button type="submit" class="btn">Create</button>
+        <a class="btn btn-secondary" th:href="@{/products}">Cancel</a>
+    </form>
+</div>
+</body>
+</html>

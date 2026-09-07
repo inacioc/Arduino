@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: order-frontend
+  thymeleaf:
+    cache: false
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true # lets the confirm/complete/cancel <form method="post"> + _method=put reach @PutMapping
+
+server:
+  port: 8081
+
+app:
+  backend:
+    # Wherever adapter-in-web actually listens in your environment - it has no
+    # server.port set, so it defaults to 8080. Adjust if you run it elsewhere
+    # (e.g. because Keycloak itself occupies 8080 in your local setup).
+    base-url: http://localhost:8080
+    # Static bearer token, obtained externally (e.g. a Keycloak password-grant
+    # call against order-realm), attached as Authorization: Bearer <token> to
+    # every request. adapter-in-web needs CUSTOMER for order actions and ADMIN
+    # for product management + order confirm/complete - use a token whose roles
+    # cover everything this UI does, or leave blank if you've disabled security
+    # on adapter-in-web for local testing. See FRONTEND_VALIDATION.md.
+    access-token: ""

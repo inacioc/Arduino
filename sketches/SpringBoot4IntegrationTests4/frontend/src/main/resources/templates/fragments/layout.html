@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8"/>
+    <title layout:title-pattern="$CONTENT_TITLE - $LAYOUT_TITLE">Order Management</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" th:href="@{/}">Order Management</a>
+    <nav>
+        <a th:href="@{/products}">Products</a>
+        <a th:href="@{/orders}">Orders</a>
+    </nav>
+</header>
+<main class="container">
+    <div class="alert alert-success" th:if="${successMessage}" th:text="${successMessage}"></div>
+    <div class="alert alert-error" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+    <div layout:fragment="content"></div>
+</main>
+<div layout:fragment="scripts"></div>
+</body>
+</html>

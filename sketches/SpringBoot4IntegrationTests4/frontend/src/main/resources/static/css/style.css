@@ -1,0 +1,47 @@
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 0; background: #f7f7f9; color: #1a1a1a; }
+
+.site-header {
+    display: flex; align-items: center; gap: 24px;
+    padding: 12px 24px; background: #1a1a2e; color: #fff;
+}
+.site-header .brand { color: #fff; font-weight: 700; text-decoration: none; font-size: 1.1rem; }
+.site-header nav a { color: #cfcfe8; text-decoration: none; margin-right: 16px; }
+.site-header nav a:hover { color: #fff; }
+
+.container { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+.cards { display: flex; gap: 16px; }
+.card { flex: 1; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); text-decoration: none; color: inherit; }
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+
+.data-table { width: 100%; border-collapse: collapse; background: #fff; }
+.data-table th, .data-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #e0e0f0; font-size: .85rem; }
+.badge-ok { background: #d4f5d4; }
+.badge-off { background: #f5d4d4; }
+
+.alert { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; }
+.alert-success { background: #d4f5d4; }
+.alert-error { background: #f5d4d4; }
+
+.form-field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; max-width: 360px; }
+.form-check { flex-direction: row; align-items: center; }
+.form-field input, .form-field select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+.field-error { color: #b00020; font-size: .85rem; }
+.global-errors { background: #fdecea; border: 1px solid #f5c6cb; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+
+.filter-form { margin-bottom: 16px; }
+
+.form-actions { margin-top: 16px; display: flex; gap: 8px; align-items: center; }
+
+.btn { display: inline-block; padding: 8px 16px; background: #1a1a2e; color: #fff; border: none;
+       border-radius: 4px; text-decoration: none; cursor: pointer; font-size: .95rem; }
+.btn:hover { background: #33334d; }
+.btn-secondary { background: #ddd; color: #1a1a1a; }
+.btn-secondary:hover { background: #ccc; }
+
+#items-table { margin-bottom: 12px; }
