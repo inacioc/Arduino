@@ -1,6 +1,10 @@
 package com.example.ordermanagement.domain.service;
 
 import com.example.ordermanagement.domain.event.OrderCreatedIntegrationEvent;
+import com.example.ordermanagement.domain.exception.OrderNotFoundException;
+import com.example.ordermanagement.domain.exception.OrderValidationException;
+import com.example.ordermanagement.domain.exception.OrderValidationException.OrderItemError;
+import com.example.ordermanagement.domain.exception.OrderValidationException.OrderItemErrorCode;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderItem;
 import com.example.ordermanagement.domain.model.OrderStatus;
@@ -63,6 +67,17 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
                 errors.add(new OrderItemError(itemCmd.productId(),
                         OrderItemErrorCode.PRODUCT_NOT_AVAILABLE,
                         "Product not available: " + itemCmd.productId()));
+                continue;
+            }
+
+            // Client-submitted price must match the catalogue price at order time —
+            // catches stale prices shown by a client and rejects tampering, without
+            // trusting the request body as the source of truth for money.
+            if (product.getPrice().compareTo(itemCmd.unitPrice()) != 0) {
+                errors.add(new OrderItemError(itemCmd.productId(),
+                        OrderItemErrorCode.PRICE_MISMATCH,
+                        "Price mismatch for product %s: submitted %s, current price %s"
+                                .formatted(itemCmd.productId(), itemCmd.unitPrice(), product.getPrice())));
                 continue;
             }
 
@@ -136,44 +151,14 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // OrderNotFoundException / OrderValidationException (with its OrderItemErrorCode /
+    // OrderItemError) used to live here as nested classes; they're now top-level types in
+    // domain.exception (imported above) so GlobalExceptionHandler and any other driving
+    // adapter can depend on them without depending on this concrete service class. See
+    // Validation.md.
+
     private Order findOrThrow(UUID orderId) {
         return orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-    }
-
-    // ── Domain Exceptions ─────────────────────────────────────────────────────
-
-    public static class OrderNotFoundException extends RuntimeException {
-        public OrderNotFoundException(UUID id) {
-            super("Order not found: " + id);
-        }
-    }
-
-    /** Machine-readable code for a single invalid order line. Extend as new rules appear. */
-    public enum OrderItemErrorCode {
-        PRODUCT_NOT_FOUND,
-        PRODUCT_NOT_AVAILABLE
-    }
-
-    /** One collected validation error, tied to the offending product line. */
-    public record OrderItemError(UUID productId, OrderItemErrorCode code, String message) {}
-
-    /**
-     * Aggregate of every validation error found while building an order.
-     * <p>
-     * Thrown once, at the end of validation, so the caller sees all bad lines at once
-     * (Notification pattern) instead of discovering them one request at a time.
-     */
-    public static class OrderValidationException extends RuntimeException {
-        private final transient List<OrderItemError> errors;
-
-        public OrderValidationException(List<OrderItemError> errors) {
-            super("Order validation failed with " + errors.size() + " error(s)");
-            this.errors = List.copyOf(errors);
-        }
-
-        public List<OrderItemError> getErrors() {
-            return errors;
-        }
+                .orElseThrow(() -> new OrderNotFoundException(orderId.toString()));
     }
 }

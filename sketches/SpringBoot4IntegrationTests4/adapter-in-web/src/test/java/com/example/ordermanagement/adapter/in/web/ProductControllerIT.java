@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -96,6 +97,25 @@ class ProductControllerIT extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors").isArray());
+    }
+
+    @Test
+    @DisplayName("POST /api/products - returns 409 when a product with the same name already exists")
+    void create_duplicateName_returns409() throws Exception {
+        productRepository.save(Product.create(PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true));
+
+        // Different id, same name - exercises the real unique constraint (migration V3)
+        // and its translation into ProductAlreadyExistsException via AbstractPersistenceAdapter.
+        CreateProductRequest request = new CreateProductRequest(
+                UUID.randomUUID(), "Widget Alpha", new BigDecimal("29.99"), true);
+
+        mockMvc.perform(post("/api/products")
+                        .with(JwtHelper.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_ALREADY_EXISTS")));
     }
 
     // ── GET /api/products/{id} ─────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 package com.example.ordermanagement.infrastructure.config;
 
+import com.example.ordermanagement.infrastructure.adapter.in.web.error.RestAccessDeniedHandler;
+import com.example.ordermanagement.infrastructure.adapter.in.web.error.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -21,7 +23,9 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                     RestAuthenticationEntryPoint authenticationEntryPoint,
+                                                     RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -31,7 +35,17 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtConverter()))
+                        // Without this, a missing/invalid JWT falls back to Spring Security's
+                        // default entry point (an empty 401 body) instead of the same
+                        // ResponseApiError envelope every other error on this API returns -
+                        // see RestAuthenticationEntryPoint's javadoc for why this can't be
+                        // done via GlobalExceptionHandler instead.
+                        .authenticationEntryPoint(authenticationEntryPoint)
                 )
+                // Covers denials made by the authorizeHttpRequests rules above (filter-level,
+                // before DispatcherServlet). @PreAuthorize denials are handled separately, by
+                // GlobalExceptionHandler - see RestAccessDeniedHandler's javadoc.
+                .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(accessDeniedHandler))
                 .build();
     }
 

@@ -145,7 +145,7 @@ class OrderControllerIT extends IntegrationTestBase {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors", hasSize(1)))
                 .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_NOT_AVAILABLE")))
-                .andExpect(jsonPath("$.errors[0].productId", is(PRODUCT_UNAVAILABLE.toString())));
+                .andExpect(jsonPath("$.errors[0].errorsValueList", contains(PRODUCT_UNAVAILABLE.toString())));
     }
 
     @Test
@@ -162,7 +162,8 @@ class OrderControllerIT extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.errors", hasSize(1)))
-                .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_NOT_FOUND")));
+                .andExpect(jsonPath("$.errors[0].code", is("PRODUCT_NOT_FOUND")))
+                .andExpect(jsonPath("$.errors[0].errorsValueList", contains(PRODUCT_UNKNOWN.toString())));
     }
 
     @Test

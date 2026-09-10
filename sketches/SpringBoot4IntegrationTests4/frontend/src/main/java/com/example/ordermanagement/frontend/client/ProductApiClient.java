@@ -61,7 +61,7 @@ public class ProductApiClient {
         try {
             return call.get();
         } catch (RestClientResponseException ex) {
-            throw ProblemDetailTranslator.translate(ex, objectMapper);
+            throw ResponseApiErrorTranslator.translate(ex, objectMapper);
         } catch (RestClientException ex) {
             throw new BackendUnavailableException("Could not reach the order service", ex);
         }

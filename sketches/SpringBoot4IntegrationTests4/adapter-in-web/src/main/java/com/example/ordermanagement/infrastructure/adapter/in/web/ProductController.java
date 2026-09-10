@@ -1,5 +1,6 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
+import com.example.ordermanagement.domain.exception.ProductNotFoundException;
 import com.example.ordermanagement.domain.port.in.GetProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase.SaveProductCommand;
@@ -37,11 +38,10 @@ public class ProductController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<ProductResponse> getById(@PathVariable UUID id) {
+    public ProductResponse getById(@PathVariable UUID id) {
         return getProduct.findProduct(id)
                 .map(ProductResponse::from)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ProductNotFoundException(id.toString()));
     }
 
     @GetMapping

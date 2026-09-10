@@ -1,6 +1,8 @@
 package com.example.ordermanagement.domain.service;
 
 import com.example.ordermanagement.domain.event.OrderCreatedIntegrationEvent;
+import com.example.ordermanagement.domain.exception.OrderValidationException;
+import com.example.ordermanagement.domain.exception.OrderValidationException.OrderItemErrorCode;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
@@ -9,8 +11,6 @@ import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCo
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
-import com.example.ordermanagement.domain.service.OrderDomainService.OrderItemErrorCode;
-import com.example.ordermanagement.domain.service.OrderDomainService.OrderValidationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -73,7 +73,7 @@ class OrderDomainServiceTest {
 
         assertThat(ex).isNotNull();
         assertThat(ex.getErrors()).hasSize(2);
-        assertThat(ex.getErrors()).extracting(OrderDomainService.OrderItemError::code)
+        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
                 .containsExactlyInAnyOrder(
                         OrderItemErrorCode.PRODUCT_NOT_FOUND,
                         OrderItemErrorCode.PRODUCT_NOT_AVAILABLE);
@@ -92,8 +92,21 @@ class OrderDomainServiceTest {
                         new OrderItemCommand(UNKNOWN, 1, new BigDecimal("10.00"))))),
                 OrderValidationException.class);
 
-        assertThat(ex.getErrors()).extracting(OrderDomainService.OrderItemError::code)
+        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
                 .containsExactly(OrderItemErrorCode.PRODUCT_NOT_FOUND);
+        assertThat(orderRepository.count()).isZero();
+    }
+
+    @Test
+    @DisplayName("submitted price different from the catalogue price → PRICE_MISMATCH")
+    void createOrder_priceMismatch_addsError() {
+        OrderValidationException ex = catchThrowableOfType(
+                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
+                        new OrderItemCommand(KNOWN, 1, new BigDecimal("39.99"))))),  // catalogue price is 49.99
+                OrderValidationException.class);
+
+        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
+                .containsExactly(OrderItemErrorCode.PRICE_MISMATCH);
         assertThat(orderRepository.count()).isZero();
     }
 

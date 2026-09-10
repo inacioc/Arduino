@@ -1,5 +1,6 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
+import com.example.ordermanagement.domain.exception.OrderNotFoundException;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase;
@@ -7,7 +8,6 @@ import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.CreateOrder
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCommand;
 import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
-import com.example.ordermanagement.domain.service.OrderDomainService;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderResponse;
 import jakarta.validation.Valid;
@@ -50,11 +50,13 @@ public class OrderController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public ResponseEntity<OrderResponse> getById(@PathVariable UUID id) {
+    public OrderResponse getById(@PathVariable UUID id) {
         return getOrder.findById(id)
                 .map(OrderResponse::from)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                // Thrown rather than a bare ResponseEntity.notFound(), so the 404 goes
+                // through GlobalExceptionHandler and comes back as a ResponseApiError like
+                // every other error this API returns, instead of an empty body.
+                .orElseThrow(() -> new OrderNotFoundException(id.toString()));
     }
 
     @GetMapping
