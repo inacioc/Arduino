@@ -25,8 +25,17 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
         // Product.id is a client-supplied UUID that JPA treats as an upsert key (re-saving
         // the same id updates the row - see this adapter's own tests), so the duplicate
         // that can actually occur here is on name (enforced by migration V3), not id.
+        //
+        // saveAndFlush (not save) is required here: plain save() only enqueues the write in
+        // the persistence context - Hibernate defers the actual INSERT until the next flush,
+        // which by default happens at @Transactional commit, i.e. AFTER this method (and its
+        // try/catch in executeAndTranslate) has already returned. A unique-constraint
+        // violation would then surface outside this adapter entirely, unmediated by
+        // executeAndTranslate, and never become a ProductAlreadyExistsException. Flushing here
+        // forces the INSERT - and therefore the constraint check - to happen synchronously,
+        // inside the try/catch, where it can actually be translated.
         return executeAndTranslate(
-                () -> mapper.toDomain(jpaRepository.save(mapper.toEntity(product))),
+                () -> mapper.toDomain(jpaRepository.saveAndFlush(mapper.toEntity(product))),
                 "Product",
                 product.getName(),
                 (entityName, name) -> new ProductAlreadyExistsException(name));
