@@ -1,9 +1,9 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
 import com.example.ordermanagement.domain.exception.DomainException;
+import com.example.ordermanagement.domain.exception.DomainValidationException;
 import com.example.ordermanagement.domain.exception.InfrastructureUnavailableException;
 import com.example.ordermanagement.domain.exception.OptimisticLockingConflictException;
-import com.example.ordermanagement.domain.exception.OrderValidationException;
 import com.example.ordermanagement.domain.exception.PersistenceDataValidationException;
 import com.example.ordermanagement.domain.exception.ResourceAlreadyExistsException;
 import com.example.ordermanagement.domain.exception.ResourceNotFoundException;
@@ -48,7 +48,7 @@ import java.util.stream.Stream;
  * <ol>
  *   <li><b>Domain / functional errors</b> — {@code domain.exception.*}: a use case
  *       decided the request can't succeed (not found, already exists, notification-pattern
- *       order validation) plus the two JDK exceptions aggregates use for their own
+ *       {@code DomainValidator} rule sets) plus the two JDK exceptions aggregates use for their own
  *       invariants per this project's convention ({@link IllegalArgumentException}/
  *       {@link IllegalStateException} — see {@code DomainException}'s javadoc).</li>
  *   <li><b>Infrastructure errors</b> — also {@code domain.exception.*}, but the technical
@@ -92,11 +92,11 @@ public class GlobalExceptionHandler {
                 singleError(code, ErrorLevel.BLOCKING, humanize(code), ex.getMessage()));
     }
 
-    /** Notification-pattern, field/line-level functional validation for order lines. */
-    @ExceptionHandler(OrderValidationException.class)
-    public ResponseEntity<ResponseApiError> handleOrderValidation(OrderValidationException ex) {
-        List<FieldProblem> problems = ex.getErrors().stream()
-                .map(e -> new FieldProblem(e.productId().toString(), e.code().name(), e.message()))
+    /** Every violation collected by the domain's {@code DomainValidator}s, grouped by rule code. */
+    @ExceptionHandler(DomainValidationException.class)
+    public ResponseEntity<ResponseApiError> handleDomainValidation(DomainValidationException ex) {
+        List<FieldProblem> problems = ex.getViolations().stream()
+                .map(v -> new FieldProblem(v.propertyPath(), v.code(), v.message()))
                 .toList();
         return respond(HttpStatus.UNPROCESSABLE_CONTENT, groupByCode(problems, ErrorLevel.BLOCKING));
     }

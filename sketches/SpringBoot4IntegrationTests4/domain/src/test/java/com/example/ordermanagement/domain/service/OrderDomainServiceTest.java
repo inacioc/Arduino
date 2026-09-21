@@ -1,8 +1,7 @@
 package com.example.ordermanagement.domain.service;
 
 import com.example.ordermanagement.domain.event.OrderCreatedIntegrationEvent;
-import com.example.ordermanagement.domain.exception.OrderValidationException;
-import com.example.ordermanagement.domain.exception.OrderValidationException.OrderItemErrorCode;
+import com.example.ordermanagement.domain.exception.DomainValidationException;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
@@ -11,6 +10,8 @@ import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCo
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.domain.validation.CreateOrderValidator;
+import com.example.ordermanagement.domain.validation.DomainViolation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -25,10 +26,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 
 /**
  * Pure unit tests for {@link OrderDomainService#createOrder} error accumulation
- * (Notification pattern) — hand-rolled port fakes, no Spring, no database.
+ * ({@link CreateOrderValidator} + notification pattern) — hand-rolled port fakes, no Spring, no database.
  */
 class OrderDomainServiceTest {
 
@@ -37,7 +39,8 @@ class OrderDomainServiceTest {
     private final CountingEventPort events = new CountingEventPort();
     private final CapturingEventPublisher eventPublisher = new CapturingEventPublisher();
     private final OrderDomainService service =
-            new OrderDomainService(orderRepository, productRepository, events, eventPublisher);
+            new OrderDomainService(orderRepository, productRepository, events, eventPublisher,
+                    new CreateOrderValidator(productRepository));
 
     private static final UUID KNOWN       = UUID.fromString("11111111-0000-0000-0000-000000000001");
     private static final UUID UNAVAILABLE = UUID.fromString("11111111-0000-0000-0000-000000000002");
@@ -64,19 +67,18 @@ class OrderDomainServiceTest {
     @Test
     @DisplayName("multiple bad lines → ALL errors are collected in one exception, nothing persisted")
     void createOrder_multipleInvalid_collectsAllErrors() {
-        OrderValidationException ex = catchThrowableOfType(
+        DomainValidationException ex = catchThrowableOfType(
                 () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
                         new OrderItemCommand(UNKNOWN, 1, new BigDecimal("10.00")),      // not found
                         new OrderItemCommand(UNAVAILABLE, 2, new BigDecimal("10.00")),  // not available
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99"))))),     // valid
-                OrderValidationException.class);
+                DomainValidationException.class);
 
         assertThat(ex).isNotNull();
-        assertThat(ex.getErrors()).hasSize(2);
-        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
+        assertThat(ex.getViolations()).extracting(DomainViolation::code, DomainViolation::propertyPath)
                 .containsExactlyInAnyOrder(
-                        OrderItemErrorCode.PRODUCT_NOT_FOUND,
-                        OrderItemErrorCode.PRODUCT_NOT_AVAILABLE);
+                        tuple(CreateOrderValidator.PRODUCT_NOT_FOUND, UNKNOWN.toString()),
+                        tuple(CreateOrderValidator.PRODUCT_NOT_AVAILABLE, UNAVAILABLE.toString()));
         // Nothing was persisted and no event fired
         assertThat(orderRepository.count()).isZero();
         assertThat(events.created).isZero();
@@ -86,27 +88,27 @@ class OrderDomainServiceTest {
     @Test
     @DisplayName("one bad line among valid ones still fails the whole order")
     void createOrder_oneInvalid_failsAtomically() {
-        OrderValidationException ex = catchThrowableOfType(
+        DomainValidationException ex = catchThrowableOfType(
                 () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")),
                         new OrderItemCommand(UNKNOWN, 1, new BigDecimal("10.00"))))),
-                OrderValidationException.class);
+                DomainValidationException.class);
 
-        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
-                .containsExactly(OrderItemErrorCode.PRODUCT_NOT_FOUND);
+        assertThat(ex.getViolations()).extracting(DomainViolation::code)
+                .containsExactly(CreateOrderValidator.PRODUCT_NOT_FOUND);
         assertThat(orderRepository.count()).isZero();
     }
 
     @Test
     @DisplayName("submitted price different from the catalogue price → PRICE_MISMATCH")
     void createOrder_priceMismatch_addsError() {
-        OrderValidationException ex = catchThrowableOfType(
+        DomainValidationException ex = catchThrowableOfType(
                 () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("39.99"))))),  // catalogue price is 49.99
-                OrderValidationException.class);
+                DomainValidationException.class);
 
-        assertThat(ex.getErrors()).extracting(OrderValidationException.OrderItemError::code)
-                .containsExactly(OrderItemErrorCode.PRICE_MISMATCH);
+        assertThat(ex.getViolations()).extracting(DomainViolation::code)
+                .containsExactly(CreateOrderValidator.PRICE_MISMATCH);
         assertThat(orderRepository.count()).isZero();
     }
 

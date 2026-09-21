@@ -71,7 +71,7 @@ final class ResponseApiErrorTranslator {
     /**
      * Flattens every {@code ApiError.errorsValueList} entry back into one
      * {@link OrderItemErrorDto} per affected order line - the inverse of how
-     * {@code GlobalExceptionHandler} groups {@code OrderValidationException}'s
+     * {@code GlobalExceptionHandler} groups {@code DomainValidationException}'s
      * per-line errors into one {@code ApiError} per code.
      */
     private static List<OrderItemErrorDto> itemErrors(ResponseApiErrorDto body) {
