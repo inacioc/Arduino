@@ -4,6 +4,7 @@ import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.GetProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.domain.validation.SaveProductValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,15 +25,20 @@ import java.util.UUID;
 public class ProductDomainService implements GetProductUseCase, SaveProductUseCase {
 
     private final ProductRepositoryPort productRepository;
+    private final SaveProductValidator saveProductValidator;
 
-    public ProductDomainService(ProductRepositoryPort productRepository) {
+    public ProductDomainService(ProductRepositoryPort productRepository,
+                                 SaveProductValidator saveProductValidator) {
         this.productRepository = productRepository;
+        this.saveProductValidator = saveProductValidator;
     }
 
     // ── SaveProductUseCase ──────────────────────────────────────────────────────
 
     @Override
     public Product save(SaveProductCommand command) {
+        saveProductValidator.assertValid(command);
+
         Product product = Product.create(
                 command.id(),
                 command.name(),

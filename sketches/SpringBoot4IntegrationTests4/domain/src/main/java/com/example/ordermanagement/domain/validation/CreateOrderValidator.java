@@ -15,6 +15,7 @@ import java.util.Optional;
 @Component
 public class CreateOrderValidator implements DomainValidator<CreateOrderCommand> {
 
+    public static final String ITEMS_REQUIRED = "ITEMS_REQUIRED";
     public static final String PRODUCT_NOT_FOUND = "PRODUCT_NOT_FOUND";
     public static final String PRODUCT_NOT_AVAILABLE = "PRODUCT_NOT_AVAILABLE";
     public static final String PRICE_MISMATCH = "PRICE_MISMATCH";
@@ -27,6 +28,11 @@ public class CreateOrderValidator implements DomainValidator<CreateOrderCommand>
 
     @Override
     public void validate(CreateOrderCommand command, ValidationNotification notification) {
+        if (command.items() == null || command.items().isEmpty()) {
+            notification.addError(ITEMS_REQUIRED, "items", "An order must have at least one item.");
+            return;
+        }
+
         for (OrderItemCommand line : command.items()) {
             String path = line.productId().toString();
 

@@ -79,6 +79,25 @@ class ProductPersistenceAdapterIT {
         assertThat(productRepository.findById(UUID.randomUUID())).isEmpty();
     }
 
+    // ── FindByName ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("findByName() returns the product holding that catalogue name")
+    void findByName_found() {
+        productRepository.save(Product.create(P_1, "Widget Alpha", new BigDecimal("49.99"), true));
+
+        Optional<Product> result = productRepository.findByName("Widget Alpha");
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(P_1);
+    }
+
+    @Test
+    @DisplayName("findByName() returns empty Optional when no product holds that name")
+    void findByName_notFound() {
+        assertThat(productRepository.findByName("Nonexistent")).isEmpty();
+    }
+
     // ── FindAll ───────────────────────────────────────────────────────────────
 
     @Test

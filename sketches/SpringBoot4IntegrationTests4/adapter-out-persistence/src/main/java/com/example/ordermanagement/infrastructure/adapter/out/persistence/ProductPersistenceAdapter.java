@@ -49,6 +49,13 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
     }
 
     @Override
+    public Optional<Product> findByName(String name) {
+        return executeAndTranslate(
+                () -> jpaRepository.findByName(name).map(mapper::toDomain),
+                "Product", name);
+    }
+
+    @Override
     public List<Product> findAll() {
         return executeAndTranslate(
                 () -> jpaRepository.findAll().stream().map(mapper::toDomain).toList(),

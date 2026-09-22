@@ -19,6 +19,9 @@ public interface ProductRepositoryPort {
 
     Optional<Product> findById(UUID id);
 
+    /** The product currently holding this catalogue name, if any — name is the business key. */
+    Optional<Product> findByName(String name);
+
     List<Product> findAll();
 
     void deleteById(UUID id);

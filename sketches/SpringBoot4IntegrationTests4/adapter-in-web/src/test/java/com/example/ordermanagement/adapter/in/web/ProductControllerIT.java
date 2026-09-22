@@ -104,8 +104,9 @@ class ProductControllerIT extends IntegrationTestBase {
     void create_duplicateName_returns409() throws Exception {
         productRepository.save(Product.create(PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true));
 
-        // Different id, same name - exercises the real unique constraint (migration V3)
-        // and its translation into ProductAlreadyExistsException via AbstractPersistenceAdapter.
+        // Different id, same name - caught by SaveProductValidator's proactive findByName()
+        // check; the unique constraint (migration V3) is the fallback for the race it can't
+        // close, translated the same way via AbstractPersistenceAdapter.
         CreateProductRequest request = new CreateProductRequest(
                 UUID.randomUUID(), "Widget Alpha", new BigDecimal("29.99"), true);
 

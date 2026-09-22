@@ -100,6 +100,18 @@ class OrderDomainServiceTest {
     }
 
     @Test
+    @DisplayName("no items → ITEMS_REQUIRED, per-line rules never run")
+    void createOrder_emptyItems_rejectedWithoutIteratingLines() {
+        DomainValidationException ex = catchThrowableOfType(
+                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of())),
+                DomainValidationException.class);
+
+        assertThat(ex.getViolations()).extracting(DomainViolation::code, DomainViolation::propertyPath)
+                .containsExactly(tuple(CreateOrderValidator.ITEMS_REQUIRED, "items"));
+        assertThat(orderRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("submitted price different from the catalogue price → PRICE_MISMATCH")
     void createOrder_priceMismatch_addsError() {
         DomainValidationException ex = catchThrowableOfType(
@@ -135,6 +147,9 @@ class OrderDomainServiceTest {
 
         @Override public Product save(Product product) { store.put(product.getId(), product); return product; }
         @Override public Optional<Product> findById(UUID id) { return Optional.ofNullable(store.get(id)); }
+        @Override public Optional<Product> findByName(String name) {
+            return store.values().stream().filter(p -> p.getName().equals(name)).findFirst();
+        }
         @Override public List<Product> findAll() { return List.copyOf(store.values()); }
         @Override public void deleteById(UUID id) { store.remove(id); }
     }
