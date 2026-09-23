@@ -14,8 +14,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.example.ordermanagement.domain.exception.DomainValidationException;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.assertj.core.api.Assertions.tuple;
 
 class SaveProductValidatorTest {
 
@@ -49,6 +54,31 @@ class SaveProductValidatorTest {
         assertThatThrownBy(() -> validator.assertValid(new SaveProductCommand(
                 OTHER, "Widget", new BigDecimal("9.99"), true)))
                 .isInstanceOf(ProductAlreadyExistsException.class);
+    }
+
+    @Test
+    @DisplayName("missing id, blank name and non-positive price → all three violations at once, uniqueness never checked")
+    void missingMandatoryFields_collectsAllViolationsAndSkipsUniquenessCheck() {
+        DomainValidationException ex = catchThrowableOfType(
+                () -> validator.assertValid(new SaveProductCommand(null, " ", BigDecimal.ZERO, true)),
+                DomainValidationException.class);
+
+        assertThat(ex.getViolations()).extracting(DomainViolation::code, DomainViolation::propertyPath)
+                .containsExactly(
+                        tuple(SaveProductValidator.ID_REQUIRED, "id"),
+                        tuple(SaveProductValidator.NAME_REQUIRED, "name"),
+                        tuple(SaveProductValidator.PRICE_INVALID, "price"));
+    }
+
+    @Test
+    @DisplayName("negative price is invalid too, not just zero")
+    void negativePrice_isInvalid() {
+        DomainValidationException ex = catchThrowableOfType(
+                () -> validator.assertValid(new SaveProductCommand(OTHER, "Widget", new BigDecimal("-1.00"), true)),
+                DomainValidationException.class);
+
+        assertThat(ex.getViolations()).extracting(DomainViolation::code)
+                .containsExactly(SaveProductValidator.PRICE_INVALID);
     }
 
     private static final class InMemoryProductRepository implements ProductRepositoryPort {
