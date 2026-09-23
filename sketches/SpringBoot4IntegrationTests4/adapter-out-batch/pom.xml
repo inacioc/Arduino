@@ -24,13 +24,11 @@
             <groupId>com.example</groupId>
             <artifactId>order-adapter-out-persistence</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.example</groupId>
-            <artifactId>order-adapter-events</artifactId>
-        </dependency>
-        <!-- EventPublicationRegistry/TargetEventPublication (org.springframework.modulith.events.core)
-             come transitively via adapter-events only at runtime scope; the poller needs
-             them at compile time, so declare it directly here. -->
+        <!-- EventPublicationRegistry/TargetEventPublication - the poller reads Modulith's
+             event-publication table directly; OrderCreatedIntegrationEvent itself comes from
+             order-domain (its own dependency above), so no dependency on adapter-events is
+             needed here at all - that module is only the Modulith plumbing that publishes
+             and locally listens for the event in adapter-in-web's process. -->
         <dependency>
             <groupId>org.springframework.modulith</groupId>
             <artifactId>spring-modulith-events-core</artifactId>
