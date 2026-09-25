@@ -30,10 +30,14 @@
          own executable Spring Boot application (web = REST server, batch = job
          runner, messaging = JMS listener). adapter-events is a library too: the
          Spring Modulith event-publication plumbing, shared by any module that
-         needs to publish or consume durable domain events. frontend is deliberately
-         NOT one of these hexagon adapters: it is a separate application that only
-         ever talks HTTP+JSON to adapter-in-web's REST API and depends on none of
-         the modules above - see frontend/pom.xml. -->
+         needs to publish or consume durable domain events. adapter-event-process is
+         dual-purpose: runnable on its own as a generic, read-only logger of whatever
+         is pending in Modulith's event-publication table, or addable as a plain
+         dependency to embed that same logging bean in another application's process
+         instead - see adapter-event-process/pom.xml. frontend is deliberately NOT
+         one of these hexagon adapters: it is a separate application that only ever
+         talks HTTP+JSON to adapter-in-web's REST API and depends on none of the
+         modules above - see frontend/pom.xml. -->
     <modules>
         <module>domain</module>
         <module>adapter-out-persistence</module>
@@ -41,6 +45,7 @@
         <module>adapter-out-batch</module>
         <module>adapter-in-web</module>
         <module>adapter-events</module>
+        <module>adapter-event-process</module>
         <module>frontend</module>
     </modules>
 
@@ -75,6 +80,11 @@
             <dependency>
                 <groupId>com.example</groupId>
                 <artifactId>order-adapter-events</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.example</groupId>
+                <artifactId>order-adapter-event-process</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
