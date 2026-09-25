@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>order-management-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>order-adapter-event-process</artifactId>
+    <name>Order Management :: adapter-event-process</name>
+
+    <!-- Dual-purpose module offering two independent ways to observe Modulith events,
+         both of which just log: ModulithEventLogger polls the shared event_publication
+         table (cross-process, read-only - works from a separate process, e.g. this
+         module's own standalone app, see EventProcessApplication); ApplicationEventLogger
+         is a plain @ApplicationModuleListener (real-time, but same-process only - only
+         fires when this module is embedded as a dependency of the actual publishing
+         application). Add this module as a runnable standalone process, or as a plain
+         dependency to embed either/both beans in another Spring Boot application's own
+         process instead. Depends on spring-modulith-starter-jpa directly (not just
+         spring-modulith-events-core) so EventPublicationRegistry actually gets a
+         concrete, JPA-backed bean here regardless of what any other module on the
+         classpath provides. -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-jpa</artifactId>
+        </dependency>
+        <!-- EventPublicationRegistry/TargetEventPublication (org.springframework.modulith.events.core)
+             aren't resolvable at compile time transitively through spring-modulith-starter-jpa
+             alone in this reactor - declare directly, same as adapter-out-batch does. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-events-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- This module is also a library (another app can depend on the
+                         plain jar for just ModulithEventLogger), so keep the plain jar
+                         and emit the runnable jar as *-exec.jar - same approach as
+                         adapter-out-messaging. -->
+                    <classifier>exec</classifier>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
