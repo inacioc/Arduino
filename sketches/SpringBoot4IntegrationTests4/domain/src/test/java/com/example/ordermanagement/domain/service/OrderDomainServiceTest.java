@@ -8,13 +8,13 @@ import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.CreateOrderCommand;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCommand;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
-import com.example.ordermanagement.domain.port.out.OrderIntegrationEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.domain.validation.CreateOrderValidator;
 import com.example.ordermanagement.domain.validation.DomainViolation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -37,9 +37,9 @@ class OrderDomainServiceTest {
     private final InMemoryOrderRepository orderRepository = new InMemoryOrderRepository();
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final CountingEventPort events = new CountingEventPort();
-    private final CapturingIntegrationEventPort integrationEvents = new CapturingIntegrationEventPort();
+    private final CapturingEventPublisher eventPublisher = new CapturingEventPublisher();
     private final OrderDomainService service =
-            new OrderDomainService(orderRepository, productRepository, events, integrationEvents,
+            new OrderDomainService(orderRepository, productRepository, events, eventPublisher,
                     new CreateOrderValidator(productRepository));
 
     private static final UUID KNOWN       = UUID.fromString("11111111-0000-0000-0000-000000000001");
@@ -60,8 +60,8 @@ class OrderDomainServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(orderRepository.count()).isEqualTo(1);
         assertThat(events.created).isEqualTo(1);
-        assertThat(integrationEvents.published).hasSize(1);
-        assertThat(integrationEvents.published.get(0).orderId()).isEqualTo(order.getId());
+        assertThat(eventPublisher.published).hasSize(1);
+        assertThat(eventPublisher.published.get(0).orderId()).isEqualTo(order.getId());
     }
 
     @Test
@@ -82,7 +82,7 @@ class OrderDomainServiceTest {
         // Nothing was persisted and no event fired
         assertThat(orderRepository.count()).isZero();
         assertThat(events.created).isZero();
-        assertThat(integrationEvents.published).isEmpty();
+        assertThat(eventPublisher.published).isEmpty();
     }
 
     @Test
@@ -162,12 +162,14 @@ class OrderDomainServiceTest {
         @Override public void publishOrderCompleted(Order order) { completed++; }
     }
 
-    private static final class CapturingIntegrationEventPort implements OrderIntegrationEventPort {
+    private static final class CapturingEventPublisher implements ApplicationEventPublisher {
         final List<OrderCreatedIntegrationEvent> published = new ArrayList<>();
 
         @Override
-        public void publish(OrderCreatedIntegrationEvent event) {
-            published.add(event);
+        public void publishEvent(Object event) {
+            if (event instanceof OrderCreatedIntegrationEvent e) {
+                published.add(e);
+            }
         }
     }
 }
