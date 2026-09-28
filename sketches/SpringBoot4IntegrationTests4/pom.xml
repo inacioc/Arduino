@@ -23,6 +23,7 @@
         <lombok.version>1.18.46</lombok.version>
         <ibm-mq.version>4.1.0</ibm-mq.version>
         <thymeleaf-layout-dialect.version>3.4.0</thymeleaf-layout-dialect.version>
+        <spring-modulith.version>2.1.1</spring-modulith.version>
     </properties>
 
     <!-- domain + persistence are libraries; each driving/runnable adapter is its
@@ -84,6 +85,19 @@
                 <groupId>nz.net.ultraq.thymeleaf</groupId>
                 <artifactId>thymeleaf-layout-dialect</artifactId>
                 <version>${thymeleaf-layout-dialect.version}</version>
+            </dependency>
+
+            <!-- Spring Modulith BOM: pinned here for any app module that adopts it (see
+                 adapter-in-web/pom.xml). Deliberately not imported by domain or other
+                 shared library modules - it's an app-level runtime/test concern, and only
+                 the specific deployable app(s) that actually use in-process module events
+                 should declare the real starter dependency. -->
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-bom</artifactId>
+                <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

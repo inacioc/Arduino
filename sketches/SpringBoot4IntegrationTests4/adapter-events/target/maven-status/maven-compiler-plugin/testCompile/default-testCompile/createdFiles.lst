@@ -1,0 +1,2 @@
+com\example\ordermanagement\infrastructure\adapter\events\OrderCreatedIntegrationEventPublisherTest.class
+com\example\ordermanagement\infrastructure\adapter\events\OrderCreatedEventListenerTest.class

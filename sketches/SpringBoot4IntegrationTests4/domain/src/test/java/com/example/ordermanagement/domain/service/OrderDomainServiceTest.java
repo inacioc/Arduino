@@ -6,8 +6,12 @@ import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.CreateOrderCommand;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCommand;
+import com.example.ordermanagement.domain.event.OrderCancelledEvent;
+import com.example.ordermanagement.domain.event.OrderCompletedEvent;
+import com.example.ordermanagement.domain.event.OrderConfirmedEvent;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.domain.port.out.OrderStatusEventPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.domain.validation.CreateOrderValidator;
 import com.example.ordermanagement.domain.validation.DomainViolation;
@@ -15,6 +19,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +40,9 @@ class OrderDomainServiceTest {
     private final InMemoryOrderRepository orderRepository = new InMemoryOrderRepository();
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final CountingEventPort events = new CountingEventPort();
+    private final CapturingStatusEventPort statusEvents = new CapturingStatusEventPort();
     private final OrderDomainService service =
-            new OrderDomainService(orderRepository, productRepository, events,
+            new OrderDomainService(orderRepository, productRepository, events, statusEvents,
                     new CreateOrderValidator(productRepository));
 
     private static final UUID KNOWN       = UUID.fromString("11111111-0000-0000-0000-000000000001");
@@ -117,6 +124,53 @@ class OrderDomainServiceTest {
         assertThat(orderRepository.count()).isZero();
     }
 
+    // ── Status transitions → OrderStatusEventPort ──────────────────────────────
+
+    @Test
+    @DisplayName("confirmOrder → status becomes CONFIRMED and OrderConfirmedEvent is published")
+    void confirmOrder_publishesOrderConfirmedEvent() {
+        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+                List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
+
+        Order confirmed = service.confirmOrder(order.getId());
+
+        assertThat(confirmed.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+        assertThat(statusEvents.confirmed).extracting(OrderConfirmedEvent::orderId)
+                .containsExactly(order.getId());
+        assertThat(statusEvents.completed).isEmpty();
+        assertThat(statusEvents.cancelled).isEmpty();
+    }
+
+    @Test
+    @DisplayName("completeOrder → status becomes COMPLETED and OrderCompletedEvent is published")
+    void completeOrder_publishesOrderCompletedEvent() {
+        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+                List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
+        service.confirmOrder(order.getId());
+
+        Order completed = service.completeOrder(order.getId());
+
+        assertThat(completed.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+        assertThat(statusEvents.completed).extracting(OrderCompletedEvent::orderId)
+                .containsExactly(order.getId());
+        // The cross-process integration event (IBM MQ) still fires too - the two ports
+        // are independent and both should react to the same transition.
+        assertThat(events.completed).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("cancelOrder → status becomes CANCELLED and OrderCancelledEvent is published")
+    void cancelOrder_publishesOrderCancelledEvent() {
+        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+                List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
+
+        Order cancelled = service.cancelOrder(order.getId());
+
+        assertThat(cancelled.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+        assertThat(statusEvents.cancelled).extracting(OrderCancelledEvent::orderId)
+                .containsExactly(order.getId());
+    }
+
     // ── Fakes ───────────────────────────────────────────────────────────────
 
     private static final class InMemoryOrderRepository implements OrderRepositoryPort {
@@ -153,5 +207,21 @@ class OrderDomainServiceTest {
 
         @Override public void publishOrderCreated(Order order) { created++; }
         @Override public void publishOrderCompleted(Order order) { completed++; }
+    }
+
+    private static final class CapturingStatusEventPort implements OrderStatusEventPort {
+        final List<OrderConfirmedEvent> confirmed = new ArrayList<>();
+        final List<OrderCompletedEvent> completed = new ArrayList<>();
+        final List<OrderCancelledEvent> cancelled = new ArrayList<>();
+
+        @Override public void confirmed(Order order) {
+            confirmed.add(new OrderConfirmedEvent(order.getId(), order.getCustomerId(), LocalDateTime.now()));
+        }
+        @Override public void completed(Order order) {
+            completed.add(new OrderCompletedEvent(order.getId(), order.getCustomerId(), LocalDateTime.now()));
+        }
+        @Override public void cancelled(Order order) {
+            cancelled.add(new OrderCancelledEvent(order.getId(), order.getCustomerId(), LocalDateTime.now()));
+        }
     }
 }

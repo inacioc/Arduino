@@ -11,6 +11,7 @@ import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.domain.port.out.OrderStatusEventPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.domain.validation.CreateOrderValidator;
 import org.springframework.stereotype.Service;
@@ -27,15 +28,18 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
     private final OrderRepositoryPort orderRepository;
     private final ProductRepositoryPort productRepository;
     private final OrderEventPort orderEvents;
+    private final OrderStatusEventPort orderStatusEvents;
     private final CreateOrderValidator createOrderValidator;
 
     public OrderDomainService(OrderRepositoryPort orderRepository,
                                ProductRepositoryPort productRepository,
                                OrderEventPort orderEvents,
+                               OrderStatusEventPort orderStatusEvents,
                                CreateOrderValidator createOrderValidator) {
         this.orderRepository   = orderRepository;
         this.productRepository = productRepository;
         this.orderEvents       = orderEvents;
+        this.orderStatusEvents = orderStatusEvents;
         this.createOrderValidator = createOrderValidator;
     }
 
@@ -79,7 +83,9 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
     public Order confirmOrder(UUID orderId) {
         Order order = findOrThrow(orderId);
         order.confirm();
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        orderStatusEvents.confirmed(saved);
+        return saved;
     }
 
     @Override
@@ -89,6 +95,7 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         order.complete();
         Order saved = orderRepository.save(order);
         orderEvents.publishOrderCompleted(saved);
+        orderStatusEvents.completed(saved);
         return saved;
     }
 
@@ -96,7 +103,9 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
     public Order cancelOrder(UUID orderId) {
         Order order = findOrThrow(orderId);
         order.cancel();
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        orderStatusEvents.cancelled(saved);
+        return saved;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
