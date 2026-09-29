@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /** Mirrors adapter-in-web's {@code CreateOrderRequest}/{@code OrderItemRequest} JSON shape. */
 public record CreateOrderRequestDto(
-        String customerId,
+        UUID customerId,
         List<OrderItemRequestDto> items
 ) {
     public record OrderItemRequestDto(

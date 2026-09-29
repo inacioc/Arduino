@@ -13,5 +13,5 @@ public interface GetOrderUseCase {
 
     List<Order> findByStatus(OrderStatus status);
 
-    List<Order> findByCustomerId(String customerId);
+    List<Order> findByCustomerId(UUID customerId);
 }

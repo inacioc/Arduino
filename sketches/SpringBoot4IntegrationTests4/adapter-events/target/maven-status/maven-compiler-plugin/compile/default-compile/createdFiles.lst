@@ -1,2 +1,0 @@
-com\example\ordermanagement\infrastructure\adapter\events\OrderCreatedEventListener.class
-com\example\ordermanagement\infrastructure\adapter\events\OrderCreatedIntegrationEventPublisher.class

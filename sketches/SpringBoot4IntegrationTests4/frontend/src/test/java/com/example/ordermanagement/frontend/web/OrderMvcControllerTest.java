@@ -45,12 +45,13 @@ class OrderMvcControllerTest {
     private ProductApiClient productApi;
 
     private static final UUID PRODUCT_ID = UUID.randomUUID();
+    private static final UUID CUSTOMER_ID = UUID.randomUUID();
 
     @Test
     void noItemsIsRejectedWithFieldError() throws Exception {
         given(productApi.findAll()).willReturn(List.of());
 
-        mockMvc.perform(post("/orders").param("customerId", "cust-1"))
+        mockMvc.perform(post("/orders").param("customerId", CUSTOMER_ID.toString()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("orders/form"))
                 .andExpect(model().attributeHasFieldErrors("orderForm", "items"));
@@ -61,7 +62,7 @@ class OrderMvcControllerTest {
         given(productApi.findAll()).willReturn(List.of());
 
         mockMvc.perform(post("/orders")
-                        .param("customerId", "cust-1")
+                        .param("customerId", CUSTOMER_ID.toString())
                         .param("items[0].productId", PRODUCT_ID.toString())
                         .param("items[0].quantity", "1")
                         .param("items[0].unitPrice", "5.00")
@@ -77,11 +78,11 @@ class OrderMvcControllerTest {
     void validSubmissionRedirectsToOrderDetail() throws Exception {
         UUID orderId = UUID.randomUUID();
         given(orderApi.create(any(CreateOrderRequestDto.class))).willReturn(
-                new OrderDto(orderId, "cust-1", OrderStatus.PENDING, new BigDecimal("10.00"),
+                new OrderDto(orderId, CUSTOMER_ID, OrderStatus.PENDING, new BigDecimal("10.00"),
                         List.of(), LocalDateTime.now(), LocalDateTime.now()));
 
         mockMvc.perform(post("/orders")
-                        .param("customerId", "cust-1")
+                        .param("customerId", CUSTOMER_ID.toString())
                         .param("items[0].productId", PRODUCT_ID.toString())
                         .param("items[0].quantity", "2")
                         .param("items[0].unitPrice", "5.00"))
@@ -97,7 +98,7 @@ class OrderMvcControllerTest {
                         List.of(new OrderItemErrorDto(PRODUCT_ID, "PRODUCT_NOT_FOUND", "Product not found"))));
 
         mockMvc.perform(post("/orders")
-                        .param("customerId", "cust-1")
+                        .param("customerId", CUSTOMER_ID.toString())
                         .param("items[0].productId", PRODUCT_ID.toString())
                         .param("items[0].quantity", "2")
                         .param("items[0].unitPrice", "5.00"))

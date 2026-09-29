@@ -1,6 +1,8 @@
 package com.example.ordermanagement.adapter.in.web;
 
+import com.example.ordermanagement.domain.model.Customer;
 import com.example.ordermanagement.domain.model.Product;
+import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderItemRequest;
@@ -41,9 +43,13 @@ class OrderControllerIT extends IntegrationTestBase {
     @MockitoBean
     private ProductRepositoryPort productRepository;
 
+    @MockitoBean
+    private CustomerRepositoryPort customerRepository;
+
     private static final UUID PRODUCT_ID          = UUID.fromString("11111111-1111-1111-1111-111111111001");
     private static final UUID PRODUCT_UNAVAILABLE = UUID.fromString("11111111-1111-1111-1111-1111111110aa");
     private static final UUID PRODUCT_UNKNOWN     = UUID.fromString("11111111-1111-1111-1111-1111111110bb");
+    private static final UUID CUSTOMER_ID         = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000001");
     private static final String PENDING_ORDER_ID  = "aaaaaaaa-0000-0000-0000-000000000001";
     private static final String CONFIRMED_ORDER_ID = "aaaaaaaa-0000-0000-0000-000000000002";
 
@@ -59,6 +65,10 @@ class OrderControllerIT extends IntegrationTestBase {
 
         when(productRepository.findById(PRODUCT_UNKNOWN))
                 .thenReturn(Optional.empty());
+
+        when(customerRepository.findById(CUSTOMER_ID))
+                .thenReturn(Optional.of(Customer.reconstitute(
+                        CUSTOMER_ID, "Ada", "Lovelace", "555-0100", "ada@example.com")));
     }
 
     // ── POST /api/orders ──────────────────────────────────────────────────────
@@ -67,7 +77,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - creates order and returns 201")
     void createOrder_success() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_ID, 2, new BigDecimal("49.99")))
         );
 
@@ -77,7 +87,7 @@ class OrderControllerIT extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNotEmpty())
-                .andExpect(jsonPath("$.customerId").value("customer-1"))
+                .andExpect(jsonPath("$.customerId").value(CUSTOMER_ID.toString()))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.totalAmount").value(99.98))
                 .andExpect(jsonPath("$.items", hasSize(1)))
@@ -89,7 +99,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - returns 401 when no JWT present")
     void createOrder_unauthorized() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_ID, 1, new BigDecimal("49.99")))
         );
 
@@ -103,7 +113,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - returns 403 when ADMIN tries to create (wrong role)")
     void createOrder_forbidden_wrongRole() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_ID, 1, new BigDecimal("49.99")))
         );
 
@@ -118,7 +128,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - returns 400 when request body is invalid")
     void createOrder_validationError() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_ID, 0, new BigDecimal("49.99")))  // quantity=0 invalid
         );
 
@@ -134,7 +144,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - returns 422 with error when product is not available")
     void createOrder_productNotAvailable() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_UNAVAILABLE, 1, new BigDecimal("10.00")))
         );
 
@@ -152,7 +162,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - returns 422 with error when product does not exist")
     void createOrder_productNotFound() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(new OrderItemRequest(PRODUCT_UNKNOWN, 1, new BigDecimal("10.00")))
         );
 
@@ -170,7 +180,7 @@ class OrderControllerIT extends IntegrationTestBase {
     @DisplayName("POST /api/orders - collects ALL invalid-line errors and returns 422")
     void createOrder_multipleInvalidItems_collectsAllErrors() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "customer-1",
+                CUSTOMER_ID,
                 List.of(
                         new OrderItemRequest(PRODUCT_UNKNOWN, 1, new BigDecimal("10.00")),      // not found
                         new OrderItemRequest(PRODUCT_UNAVAILABLE, 2, new BigDecimal("10.00")),  // not available
@@ -200,7 +210,7 @@ class OrderControllerIT extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(PENDING_ORDER_ID))
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.customerId").value("customer-1"))
+                .andExpect(jsonPath("$.customerId").value(CUSTOMER_ID.toString()))
                 .andExpect(jsonPath("$.items", hasSize(greaterThanOrEqualTo(1))));
     }
 

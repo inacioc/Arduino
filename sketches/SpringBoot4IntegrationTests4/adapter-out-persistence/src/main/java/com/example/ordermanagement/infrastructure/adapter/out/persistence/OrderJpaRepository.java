@@ -10,5 +10,5 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, UUID> {
 
     List<OrderEntity> findByStatus(OrderStatus status);
 
-    List<OrderEntity> findByCustomerId(String customerId);
+    List<OrderEntity> findByCustomerId(UUID customerId);
 }

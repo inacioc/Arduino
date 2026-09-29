@@ -21,7 +21,7 @@ public class OrderEntity {
     private UUID id;
 
     @Column(name = "customer_id", nullable = false)
-    private String customerId;
+    private UUID customerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

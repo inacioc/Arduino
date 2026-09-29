@@ -1,8 +1,10 @@
 package com.example.ordermanagement;
 
+import com.example.ordermanagement.domain.model.Customer;
 import com.example.ordermanagement.domain.model.Order;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
+import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
@@ -52,9 +54,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderFlowIT extends IntegrationTestBase {
 
     private static final UUID PROD_E2E = UUID.fromString("22222222-2222-2222-2222-2222222222e2");
+    private static final UUID CUSTOMER_E2E    = UUID.fromString("33333333-2222-2222-2222-2222222222e2");
+    private static final UUID CUSTOMER_VIEW   = UUID.fromString("33333333-2222-2222-2222-2222222222e3");
+    private static final UUID CUSTOMER_CANCEL = UUID.fromString("33333333-2222-2222-2222-2222222222e4");
 
     @MockitoBean
     private ProductRepositoryPort productRepository;
+
+    @MockitoBean
+    private CustomerRepositoryPort customerRepository;
 
     @Autowired
     private OrderRepositoryPort orderRepository;
@@ -72,6 +80,12 @@ class OrderFlowIT extends IntegrationTestBase {
         when(productRepository.findById(PROD_E2E))
                 .thenReturn(Optional.of(Product.create(
                         PROD_E2E, "E2E Test Widget", new BigDecimal("100.00"), true)));
+
+        for (UUID customerId : List.of(CUSTOMER_E2E, CUSTOMER_VIEW, CUSTOMER_CANCEL)) {
+            when(customerRepository.findById(customerId))
+                    .thenReturn(Optional.of(Customer.reconstitute(
+                            customerId, "E2E", "Customer", "555-0100", customerId + "@example.com")));
+        }
     }
 
     @Test
@@ -80,7 +94,7 @@ class OrderFlowIT extends IntegrationTestBase {
 
         // ── Step 1: Customer creates an order ─────────────────────────────────
         CreateOrderRequest createRequest = new CreateOrderRequest(
-                "e2e-customer",
+                CUSTOMER_E2E,
                 List.of(new OrderItemRequest(PROD_E2E, 2, new BigDecimal("100.00")))
         );
 
@@ -101,7 +115,7 @@ class OrderFlowIT extends IntegrationTestBase {
         // Verify persisted in DB
         Order savedOrder = orderRepository.findById(orderId).orElseThrow();
         assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.PENDING);
-        assertThat(savedOrder.getCustomerId()).isEqualTo("e2e-customer");
+        assertThat(savedOrder.getCustomerId()).isEqualTo(CUSTOMER_E2E);
         assertThat(savedOrder.getItems()).hasSize(1);
 
         // Verify ORDER_CREATED event published to IBM MQ
@@ -139,7 +153,7 @@ class OrderFlowIT extends IntegrationTestBase {
     @DisplayName("Customer can view their own orders after creation")
     void customerCanViewOrders() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "view-customer",
+                CUSTOMER_VIEW,
                 List.of(new OrderItemRequest(PROD_E2E, 1, new BigDecimal("100.00")))
         );
 
@@ -149,18 +163,18 @@ class OrderFlowIT extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/api/orders/customer/{customerId}", "view-customer")
+        mockMvc.perform(get("/api/orders/customer/{customerId}", CUSTOMER_VIEW)
                         .with(JwtHelper.customerToken("view-customer")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].customerId").value("view-customer"));
+                .andExpect(jsonPath("$[0].customerId").value(CUSTOMER_VIEW.toString()));
     }
 
     @Test
     @DisplayName("Order cancellation is reflected in DB")
     void cancelOrder_persistsCancelledStatus() throws Exception {
         CreateOrderRequest request = new CreateOrderRequest(
-                "cancel-customer",
+                CUSTOMER_CANCEL,
                 List.of(new OrderItemRequest(PROD_E2E, 1, new BigDecimal("100.00")))
         );
 

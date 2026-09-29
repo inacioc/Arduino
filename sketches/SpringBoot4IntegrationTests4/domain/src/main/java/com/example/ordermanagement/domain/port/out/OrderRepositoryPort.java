@@ -15,7 +15,7 @@ public interface OrderRepositoryPort {
 
     List<Order> findByStatus(OrderStatus status);
 
-    List<Order> findByCustomerId(String customerId);
+    List<Order> findByCustomerId(UUID customerId);
 
     void deleteById(UUID id);
 }

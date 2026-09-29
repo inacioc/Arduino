@@ -9,7 +9,7 @@ import java.util.UUID;
 public record OrderEvent(
         String eventType,
         UUID orderId,
-        String customerId,
+        UUID customerId,
         OrderStatus status,
         BigDecimal totalAmount,
         LocalDateTime occurredAt

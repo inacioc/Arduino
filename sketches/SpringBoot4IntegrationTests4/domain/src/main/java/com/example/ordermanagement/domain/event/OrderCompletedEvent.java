@@ -13,5 +13,5 @@ import java.util.UUID;
  * for other deployable applications. This one is for in-process side effects only (e.g. an
  * audit trail) and never leaves the JVM that publishes it.
  */
-public record OrderCompletedEvent(UUID orderId, String customerId, LocalDateTime occurredAt) {
+public record OrderCompletedEvent(UUID orderId, UUID customerId, LocalDateTime occurredAt) {
 }

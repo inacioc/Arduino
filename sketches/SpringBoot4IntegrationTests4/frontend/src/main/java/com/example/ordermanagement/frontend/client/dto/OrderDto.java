@@ -8,7 +8,7 @@ import java.util.UUID;
 /** Mirrors adapter-in-web's {@code OrderResponse} JSON shape. */
 public record OrderDto(
         UUID id,
-        String customerId,
+        UUID customerId,
         OrderStatus status,
         BigDecimal totalAmount,
         List<OrderItemDto> items,

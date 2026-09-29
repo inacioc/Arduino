@@ -56,7 +56,7 @@ public class OrderPersistenceAdapter extends AbstractPersistenceAdapter implemen
     }
 
     @Override
-    public List<Order> findByCustomerId(String customerId) {
+    public List<Order> findByCustomerId(UUID customerId) {
         return executeAndTranslate(
                 () -> jpaRepository.findByCustomerId(customerId).stream().map(mapper::toDomain).toList(),
                 "Order", "customerId=" + customerId);

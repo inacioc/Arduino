@@ -73,7 +73,7 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
 
     @Override
     @Transactional(readOnly = true)
-    public List<Order> findByCustomerId(String customerId) {
+    public List<Order> findByCustomerId(UUID customerId) {
         return orderRepository.findByCustomerId(customerId);
     }
 

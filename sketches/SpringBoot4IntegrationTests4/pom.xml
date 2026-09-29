@@ -28,8 +28,11 @@
 
     <!-- domain + persistence are libraries; each driving/runnable adapter is its
          own executable Spring Boot application (web = REST server, batch = job
-         runner, messaging = JMS listener). frontend is deliberately NOT one of
-         these hexagon adapters: it is a separate application that only ever
+         runner, messaging = JMS listener). adapter-events is a library too: Spring
+         Modulith's in-process module-event publisher/listeners, embedded into
+         whichever app(s) publish/react to order-status events (today, only
+         adapter-in-web - see that module's pom.xml). frontend is deliberately NOT
+         one of these hexagon adapters: it is a separate application that only ever
          talks HTTP+JSON to adapter-in-web's REST API and depends on none of the
          modules above - see frontend/pom.xml. -->
     <modules>
@@ -37,6 +40,7 @@
         <module>adapter-out-persistence</module>
         <module>adapter-out-messaging</module>
         <module>adapter-out-batch</module>
+        <module>adapter-events</module>
         <module>adapter-in-web</module>
         <module>frontend</module>
     </modules>
@@ -67,6 +71,11 @@
             <dependency>
                 <groupId>com.example</groupId>
                 <artifactId>order-adapter-out-batch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.example</groupId>
+                <artifactId>order-adapter-events</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

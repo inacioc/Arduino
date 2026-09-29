@@ -11,7 +11,7 @@ public interface CreateOrderUseCase {
     Order createOrder(CreateOrderCommand command);
 
     record CreateOrderCommand(
-            String customerId,
+            UUID customerId,
             List<OrderItemCommand> items
     ) {}
 

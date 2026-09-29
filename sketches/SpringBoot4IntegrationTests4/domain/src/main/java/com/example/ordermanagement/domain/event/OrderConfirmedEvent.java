@@ -15,5 +15,5 @@ import java.util.UUID;
  * which is also what lets Spring Modulith's module-dependency analysis see which event
  * types actually cross a module boundary.
  */
-public record OrderConfirmedEvent(UUID orderId, String customerId, LocalDateTime occurredAt) {
+public record OrderConfirmedEvent(UUID orderId, UUID customerId, LocalDateTime occurredAt) {
 }

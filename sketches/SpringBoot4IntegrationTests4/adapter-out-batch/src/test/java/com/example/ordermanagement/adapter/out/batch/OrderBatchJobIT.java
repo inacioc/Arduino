@@ -52,8 +52,8 @@ class OrderBatchJobIT {
     @DisplayName("Job advances orders to their target status and reports OK")
     void job_changesStatuses_writesOkResults(@TempDir Path tempDir) throws Exception {
         // Arrange: a PENDING order to complete, and a CONFIRMED order to cancel
-        Order toComplete = saveOrder("cust-complete", OrderStatus.PENDING);
-        Order toCancel   = saveOrder("cust-cancel", OrderStatus.CONFIRMED);
+        Order toComplete = saveOrder(UUID.randomUUID(), OrderStatus.PENDING);
+        Order toCancel   = saveOrder(UUID.randomUUID(), OrderStatus.CONFIRMED);
 
         Path input = writeInput(tempDir,
                 row(toComplete.getId(), "COMPLETED"),
@@ -79,7 +79,7 @@ class OrderBatchJobIT {
     @Test
     @DisplayName("Job reports error codes for bad rows without failing the job")
     void job_badRows_reportErrorCodes(@TempDir Path tempDir) throws Exception {
-        Order completed = saveOrder("cust-completed", OrderStatus.COMPLETED);
+        Order completed = saveOrder(UUID.randomUUID(), OrderStatus.COMPLETED);
         UUID missingId  = UUID.randomUUID();
 
         Path input = writeInput(tempDir,
@@ -113,7 +113,7 @@ class OrderBatchJobIT {
         return jobLauncherTestUtils.launchJob(params);
     }
 
-    private Order saveOrder(String customerId, OrderStatus target) {
+    private Order saveOrder(UUID customerId, OrderStatus target) {
         Order order = Order.create(customerId, List.of(
                 new OrderItem(UUID.fromString("44444444-0000-0000-0000-0000000000ba"),
                         "Batch Test Product", 1, new BigDecimal("100.00"))

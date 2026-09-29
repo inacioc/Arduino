@@ -147,7 +147,7 @@ class OrderMqPublisherIT {
     }
 
     private Order buildOrder() {
-        return Order.create("test-customer", List.of(
+        return Order.create(UUID.randomUUID(), List.of(
                 new OrderItem(UUID.fromString("55555555-0000-0000-0000-0000000000a1"),
                         "MQ Test Product", 2, new BigDecimal("25.00"))
         ));

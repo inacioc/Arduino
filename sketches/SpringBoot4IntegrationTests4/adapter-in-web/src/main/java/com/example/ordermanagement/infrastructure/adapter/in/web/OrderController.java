@@ -71,7 +71,7 @@ public class OrderController {
 
     @GetMapping("/customer/{customerId}")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    public List<OrderResponse> getByCustomer(@PathVariable String customerId) {
+    public List<OrderResponse> getByCustomer(@PathVariable UUID customerId) {
         return getOrder.findByCustomerId(customerId).stream()
                 .map(OrderResponse::from)
                 .toList();

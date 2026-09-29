@@ -15,7 +15,7 @@ import java.util.UUID;
 public class Order {
 
     private UUID id;
-    private String customerId;
+    private UUID customerId;
     private List<OrderItem> items;
     private OrderStatus status;
     private BigDecimal totalAmount;
@@ -26,7 +26,7 @@ public class Order {
 
     // ── Factory method (new orders) ──────────────────────────────────────────
 
-    public static Order create(String customerId, List<OrderItem> items) {
+    public static Order create(UUID customerId, List<OrderItem> items) {
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("Order must have at least one item");
         }
@@ -45,7 +45,7 @@ public class Order {
 
     // ── Reconstitution from persistence ──────────────────────────────────────
 
-    public static Order reconstitute(UUID id, String customerId, List<OrderItem> items,
+    public static Order reconstitute(UUID id, UUID customerId, List<OrderItem> items,
                                      OrderStatus status, BigDecimal totalAmount,
                                      LocalDateTime createdAt, LocalDateTime updatedAt) {
         Order order = new Order();
@@ -131,7 +131,7 @@ public class Order {
     // ── Getters ───────────────────────────────────────────────────────────────
 
     public UUID getId()               { return id; }
-    public String getCustomerId()     { return customerId; }
+    public UUID getCustomerId()       { return customerId; }
     public List<OrderItem> getItems() { return Collections.unmodifiableList(items); }
     public OrderStatus getStatus()    { return status; }
     public BigDecimal getTotalAmount(){ return totalAmount; }

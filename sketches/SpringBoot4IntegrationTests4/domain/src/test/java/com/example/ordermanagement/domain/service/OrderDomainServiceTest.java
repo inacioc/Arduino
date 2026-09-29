@@ -9,6 +9,8 @@ import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCo
 import com.example.ordermanagement.domain.event.OrderCancelledEvent;
 import com.example.ordermanagement.domain.event.OrderCompletedEvent;
 import com.example.ordermanagement.domain.event.OrderConfirmedEvent;
+import com.example.ordermanagement.domain.model.Customer;
+import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
 import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
 import com.example.ordermanagement.domain.port.out.OrderStatusEventPort;
@@ -39,25 +41,29 @@ class OrderDomainServiceTest {
 
     private final InMemoryOrderRepository orderRepository = new InMemoryOrderRepository();
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
+    private final InMemoryCustomerRepository customerRepository = new InMemoryCustomerRepository();
     private final CountingEventPort events = new CountingEventPort();
     private final CapturingStatusEventPort statusEvents = new CapturingStatusEventPort();
     private final OrderDomainService service =
             new OrderDomainService(orderRepository, productRepository, events, statusEvents,
-                    new CreateOrderValidator(productRepository));
+                    new CreateOrderValidator(customerRepository, productRepository));
 
     private static final UUID KNOWN       = UUID.fromString("11111111-0000-0000-0000-000000000001");
     private static final UUID UNAVAILABLE = UUID.fromString("11111111-0000-0000-0000-000000000002");
     private static final UUID UNKNOWN     = UUID.fromString("11111111-0000-0000-0000-0000000000ff");
+    private static final UUID CUSTOMER    = UUID.fromString("22222222-0000-0000-0000-000000000001");
+    private static final UUID UNKNOWN_CUSTOMER = UUID.fromString("22222222-0000-0000-0000-0000000000ff");
 
     OrderDomainServiceTest() {
         productRepository.save(Product.create(KNOWN, "Widget", new BigDecimal("49.99"), true));
         productRepository.save(Product.create(UNAVAILABLE, "Out of stock", new BigDecimal("10.00"), false));
+        customerRepository.save(Customer.reconstitute(CUSTOMER, "Ada", "Lovelace", "555-0100", "ada@example.com"));
     }
 
     @Test
     @DisplayName("all lines valid → order is created, saved and an event is published")
     void createOrder_allValid_succeeds() {
-        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+        Order order = service.createOrder(new CreateOrderCommand(CUSTOMER,
                 List.of(new OrderItemCommand(KNOWN, 2, new BigDecimal("49.99")))));
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
@@ -69,7 +75,7 @@ class OrderDomainServiceTest {
     @DisplayName("multiple bad lines → ALL errors are collected in one exception, nothing persisted")
     void createOrder_multipleInvalid_collectsAllErrors() {
         DomainValidationException ex = catchThrowableOfType(
-                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
+                () -> service.createOrder(new CreateOrderCommand(CUSTOMER, List.of(
                         new OrderItemCommand(UNKNOWN, 1, new BigDecimal("10.00")),      // not found
                         new OrderItemCommand(UNAVAILABLE, 2, new BigDecimal("10.00")),  // not available
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99"))))),     // valid
@@ -89,7 +95,7 @@ class OrderDomainServiceTest {
     @DisplayName("one bad line among valid ones still fails the whole order")
     void createOrder_oneInvalid_failsAtomically() {
         DomainValidationException ex = catchThrowableOfType(
-                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
+                () -> service.createOrder(new CreateOrderCommand(CUSTOMER, List.of(
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")),
                         new OrderItemCommand(UNKNOWN, 1, new BigDecimal("10.00"))))),
                 DomainValidationException.class);
@@ -103,7 +109,7 @@ class OrderDomainServiceTest {
     @DisplayName("no items → ITEMS_REQUIRED, per-line rules never run")
     void createOrder_emptyItems_rejectedWithoutIteratingLines() {
         DomainValidationException ex = catchThrowableOfType(
-                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of())),
+                () -> service.createOrder(new CreateOrderCommand(CUSTOMER, List.of())),
                 DomainValidationException.class);
 
         assertThat(ex.getViolations()).extracting(DomainViolation::code, DomainViolation::propertyPath)
@@ -115,7 +121,7 @@ class OrderDomainServiceTest {
     @DisplayName("submitted price different from the catalogue price → PRICE_MISMATCH")
     void createOrder_priceMismatch_addsError() {
         DomainValidationException ex = catchThrowableOfType(
-                () -> service.createOrder(new CreateOrderCommand("cust-1", List.of(
+                () -> service.createOrder(new CreateOrderCommand(CUSTOMER, List.of(
                         new OrderItemCommand(KNOWN, 1, new BigDecimal("39.99"))))),  // catalogue price is 49.99
                 DomainValidationException.class);
 
@@ -124,12 +130,25 @@ class OrderDomainServiceTest {
         assertThat(orderRepository.count()).isZero();
     }
 
+    @Test
+    @DisplayName("unknown customer → CUSTOMER_NOT_FOUND, alongside any item errors")
+    void createOrder_unknownCustomer_addsError() {
+        DomainValidationException ex = catchThrowableOfType(
+                () -> service.createOrder(new CreateOrderCommand(UNKNOWN_CUSTOMER, List.of(
+                        new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99"))))),
+                DomainValidationException.class);
+
+        assertThat(ex.getViolations()).extracting(DomainViolation::code, DomainViolation::propertyPath)
+                .containsExactly(tuple(CreateOrderValidator.CUSTOMER_NOT_FOUND, UNKNOWN_CUSTOMER.toString()));
+        assertThat(orderRepository.count()).isZero();
+    }
+
     // ── Status transitions → OrderStatusEventPort ──────────────────────────────
 
     @Test
     @DisplayName("confirmOrder → status becomes CONFIRMED and OrderConfirmedEvent is published")
     void confirmOrder_publishesOrderConfirmedEvent() {
-        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+        Order order = service.createOrder(new CreateOrderCommand(CUSTOMER,
                 List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
 
         Order confirmed = service.confirmOrder(order.getId());
@@ -144,7 +163,7 @@ class OrderDomainServiceTest {
     @Test
     @DisplayName("completeOrder → status becomes COMPLETED and OrderCompletedEvent is published")
     void completeOrder_publishesOrderCompletedEvent() {
-        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+        Order order = service.createOrder(new CreateOrderCommand(CUSTOMER,
                 List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
         service.confirmOrder(order.getId());
 
@@ -161,7 +180,7 @@ class OrderDomainServiceTest {
     @Test
     @DisplayName("cancelOrder → status becomes CANCELLED and OrderCancelledEvent is published")
     void cancelOrder_publishesOrderCancelledEvent() {
-        Order order = service.createOrder(new CreateOrderCommand("cust-1",
+        Order order = service.createOrder(new CreateOrderCommand(CUSTOMER,
                 List.of(new OrderItemCommand(KNOWN, 1, new BigDecimal("49.99")))));
 
         Order cancelled = service.cancelOrder(order.getId());
@@ -183,9 +202,21 @@ class OrderDomainServiceTest {
         @Override public List<Order> findByStatus(OrderStatus status) {
             return store.values().stream().filter(o -> o.getStatus() == status).toList();
         }
-        @Override public List<Order> findByCustomerId(String customerId) {
+        @Override public List<Order> findByCustomerId(UUID customerId) {
             return store.values().stream().filter(o -> o.getCustomerId().equals(customerId)).toList();
         }
+        @Override public void deleteById(UUID id) { store.remove(id); }
+    }
+
+    private static final class InMemoryCustomerRepository implements CustomerRepositoryPort {
+        private final Map<UUID, Customer> store = new HashMap<>();
+
+        @Override public Customer save(Customer customer) { store.put(customer.getId(), customer); return customer; }
+        @Override public Optional<Customer> findById(UUID id) { return Optional.ofNullable(store.get(id)); }
+        @Override public Optional<Customer> findByEmail(String email) {
+            return store.values().stream().filter(c -> c.getEmail().equals(email)).findFirst();
+        }
+        @Override public List<Customer> findAll() { return List.copyOf(store.values()); }
         @Override public void deleteById(UUID id) { store.remove(id); }
     }
 

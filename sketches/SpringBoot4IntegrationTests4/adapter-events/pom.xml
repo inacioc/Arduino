@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>order-management-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>order-adapter-events</artifactId>
+    <name>Order Management :: adapter-events</name>
+
+    <!-- Spring Modulith's in-process, durable module-event plumbing for order-status
+         transitions: OrderStatusEventPublisher (implements domain's OrderStatusEventPort),
+         OrderStatusAuditListener (logs every transition) and CustomerNotificationListener
+         (simulates sending the customer an email on CONFIRMED/COMPLETED/CANCELLED) - see
+         Events_ChoiceII.md for the full rationale.
+         A plain library module, like adapter-out-persistence/adapter-out-messaging - not a
+         standalone deployable. Whichever app embeds it (today, only adapter-in-web) gets
+         these beans component-scanned automatically because they keep the same
+         com.example.ordermanagement.infrastructure.adapter.events package that app's own
+         @SpringBootApplication already scans; no scanBasePackages change needed there. -->
+    <dependencies>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-domain</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-jpa</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

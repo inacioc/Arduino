@@ -45,12 +45,13 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("save() persists a new order and returns it with same ID")
     void save_persistsNewOrder() {
-        Order order = buildOrder("customer-42");
+        UUID customerId = UUID.randomUUID();
+        Order order = buildOrder(customerId);
 
         Order saved = orderRepository.save(order);
 
         assertThat(saved.getId()).isEqualTo(order.getId());
-        assertThat(saved.getCustomerId()).isEqualTo("customer-42");
+        assertThat(saved.getCustomerId()).isEqualTo(customerId);
         assertThat(saved.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(saved.getItems()).hasSize(2);
         assertThat(saved.getTotalAmount()).isEqualByComparingTo("149.96");
@@ -59,7 +60,7 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("save() persists order items with correct subtotals")
     void save_persistsOrderItemsCorrectly() {
-        Order order = buildOrder("customer-items");
+        Order order = buildOrder(UUID.randomUUID());
         Order saved = orderRepository.save(order);
 
         assertThat(saved.getItems())
@@ -70,7 +71,7 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("save() updates an existing order (status change persists)")
     void save_updatesExistingOrder() {
-        Order order = orderRepository.save(buildOrder("customer-update"));
+        Order order = orderRepository.save(buildOrder(UUID.randomUUID()));
 
         order.confirm();
         Order updated = orderRepository.save(order);
@@ -94,12 +95,13 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("findById() returns the order when it exists")
     void findById_found_returnsOrder() {
-        Order saved = orderRepository.save(buildOrder("customer-find"));
+        UUID customerId = UUID.randomUUID();
+        Order saved = orderRepository.save(buildOrder(customerId));
 
         Optional<Order> result = orderRepository.findById(saved.getId());
 
         assertThat(result).isPresent();
-        assertThat(result.get().getCustomerId()).isEqualTo("customer-find");
+        assertThat(result.get().getCustomerId()).isEqualTo(customerId);
     }
 
     // ── FindByStatus ──────────────────────────────────────────────────────────
@@ -107,8 +109,8 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("findByStatus() returns only orders with matching status")
     void findByStatus_returnsMatchingOrders() {
-        Order pending   = orderRepository.save(buildOrder("cust-a"));
-        Order confirmed = orderRepository.save(buildOrder("cust-b"));
+        Order pending   = orderRepository.save(buildOrder(UUID.randomUUID()));
+        Order confirmed = orderRepository.save(buildOrder(UUID.randomUUID()));
         confirmed.confirm();
         orderRepository.save(confirmed);
 
@@ -125,20 +127,21 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("findByCustomerId() returns all orders for the customer")
     void findByCustomerId_returnsAllCustomerOrders() {
-        orderRepository.save(buildOrder("target-customer"));
-        orderRepository.save(buildOrder("target-customer"));
-        orderRepository.save(buildOrder("other-customer"));
+        UUID targetCustomer = UUID.randomUUID();
+        orderRepository.save(buildOrder(targetCustomer));
+        orderRepository.save(buildOrder(targetCustomer));
+        orderRepository.save(buildOrder(UUID.randomUUID()));
 
-        List<Order> orders = orderRepository.findByCustomerId("target-customer");
+        List<Order> orders = orderRepository.findByCustomerId(targetCustomer);
 
         assertThat(orders).hasSize(2);
-        assertThat(orders).allMatch(o -> o.getCustomerId().equals("target-customer"));
+        assertThat(orders).allMatch(o -> o.getCustomerId().equals(targetCustomer));
     }
 
     @Test
     @DisplayName("findByCustomerId() returns empty list for unknown customer")
     void findByCustomerId_unknownCustomer_returnsEmpty() {
-        List<Order> orders = orderRepository.findByCustomerId("no-such-customer");
+        List<Order> orders = orderRepository.findByCustomerId(UUID.randomUUID());
 
         assertThat(orders).isEmpty();
     }
@@ -148,7 +151,7 @@ class OrderPersistenceAdapterIT {
     @Test
     @DisplayName("deleteById() removes the order and its items")
     void deleteById_removesOrderAndItems() {
-        Order saved = orderRepository.save(buildOrder("customer-delete"));
+        Order saved = orderRepository.save(buildOrder(UUID.randomUUID()));
         UUID id = saved.getId();
 
         orderRepository.deleteById(id);
@@ -158,7 +161,7 @@ class OrderPersistenceAdapterIT {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private Order buildOrder(String customerId) {
+    private Order buildOrder(UUID customerId) {
         // 3 * 29.99 = 89.97 + 1 * 59.99 = 59.99 → total = 149.96
         return Order.create(customerId, List.of(
                 new OrderItem(P_1, "Product One", 3, new BigDecimal("29.99")),

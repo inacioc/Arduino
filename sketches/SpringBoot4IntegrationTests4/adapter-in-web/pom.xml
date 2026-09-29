@@ -28,14 +28,14 @@
             <groupId>com.example</groupId>
             <artifactId>order-adapter-out-messaging</artifactId>
         </dependency>
-
-        <!-- Spring Modulith: in-process, durable module events (OrderStatusEventPort's
-             adapter + its @ApplicationModuleListener) for this app's own order-status
-             transitions only - never a substitute for the IBM MQ integration events above,
-             see OrderStatusEventPort's javadoc. -->
+        <!-- In-process, durable module events (OrderStatusEventPort's adapter + its
+             @ApplicationModuleListeners) for this app's own order-status transitions -
+             never a substitute for the IBM MQ integration events above, see
+             OrderStatusEventPort's javadoc. Brings spring-modulith-starter-jpa transitively,
+             so no direct Modulith dependency is needed here. -->
         <dependency>
-            <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-jpa</artifactId>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-events</artifactId>
         </dependency>
 
         <dependency>
