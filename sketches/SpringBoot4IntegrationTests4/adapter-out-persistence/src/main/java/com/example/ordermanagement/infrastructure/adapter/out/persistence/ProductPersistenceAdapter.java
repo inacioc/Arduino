@@ -16,6 +16,7 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
     private final ProductEntityMapper mapper;
 
     public ProductPersistenceAdapter(ProductJpaRepository jpaRepository, ProductEntityMapper mapper) {
+        super("Product");
         this.jpaRepository = jpaRepository;
         this.mapper        = mapper;
     }
@@ -36,7 +37,6 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
         // inside the try/catch, where it can actually be translated.
         return executeAndTranslate(
                 () -> mapper.toDomain(jpaRepository.saveAndFlush(mapper.toEntity(product))),
-                "Product",
                 product.getName(),
                 (entityName, name) -> new ProductAlreadyExistsException(name));
     }
@@ -45,21 +45,21 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
     public Optional<Product> findById(UUID id) {
         return executeAndTranslate(
                 () -> jpaRepository.findById(id).map(mapper::toDomain),
-                "Product", id.toString());
+                id.toString());
     }
 
     @Override
     public Optional<Product> findByName(String name) {
         return executeAndTranslate(
                 () -> jpaRepository.findByName(name).map(mapper::toDomain),
-                "Product", name);
+                name);
     }
 
     @Override
     public List<Product> findAll() {
         return executeAndTranslate(
                 () -> jpaRepository.findAll().stream().map(mapper::toDomain).toList(),
-                "Product", "all");
+                "all");
     }
 
     @Override
@@ -67,6 +67,6 @@ public class ProductPersistenceAdapter extends AbstractPersistenceAdapter implem
         executeAndTranslate(() -> {
             jpaRepository.deleteById(id);
             return null;
-        }, "Product", id.toString());
+        }, id.toString());
     }
 }

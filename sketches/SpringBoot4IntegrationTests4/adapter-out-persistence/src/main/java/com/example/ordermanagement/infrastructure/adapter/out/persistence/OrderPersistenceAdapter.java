@@ -16,6 +16,7 @@ public class OrderPersistenceAdapter extends AbstractPersistenceAdapter implemen
     private final OrderEntityMapper mapper;
 
     public OrderPersistenceAdapter(OrderJpaRepository jpaRepository, OrderEntityMapper mapper) {
+        super("Order");
         this.jpaRepository = jpaRepository;
         this.mapper        = mapper;
     }
@@ -38,28 +39,28 @@ public class OrderPersistenceAdapter extends AbstractPersistenceAdapter implemen
             });
 
             return mapper.toDomain(jpaRepository.save(entity));
-        }, "Order", order.getId().toString());
+        }, order.getId().toString());
     }
 
     @Override
     public Optional<Order> findById(UUID id) {
         return executeAndTranslate(
                 () -> jpaRepository.findById(id).map(mapper::toDomain),
-                "Order", id.toString());
+                id.toString());
     }
 
     @Override
     public List<Order> findByStatus(OrderStatus status) {
         return executeAndTranslate(
                 () -> jpaRepository.findByStatus(status).stream().map(mapper::toDomain).toList(),
-                "Order", "status=" + status);
+                "status=" + status);
     }
 
     @Override
     public List<Order> findByCustomerId(UUID customerId) {
         return executeAndTranslate(
                 () -> jpaRepository.findByCustomerId(customerId).stream().map(mapper::toDomain).toList(),
-                "Order", "customerId=" + customerId);
+                "customerId=" + customerId);
     }
 
     @Override
@@ -67,6 +68,6 @@ public class OrderPersistenceAdapter extends AbstractPersistenceAdapter implemen
         executeAndTranslate(() -> {
             jpaRepository.deleteById(id);
             return null;
-        }, "Order", id.toString());
+        }, id.toString());
     }
 }

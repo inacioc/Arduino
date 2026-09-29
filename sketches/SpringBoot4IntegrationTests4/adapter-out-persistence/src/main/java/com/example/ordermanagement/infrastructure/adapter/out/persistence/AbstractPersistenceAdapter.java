@@ -34,12 +34,22 @@ import java.util.function.Supplier;
 public abstract class AbstractPersistenceAdapter {
 
     /**
+     * Human-readable entity name (e.g. {@code "Product"}) this adapter reports in every
+     * translated exception's message. Fixed per adapter, set once at construction — every
+     * {@code *PersistenceAdapter} deals with exactly one entity, so there is nothing to
+     * gain from letting each call site repeat (and risk mis-typing) the same literal.
+     */
+    private final String entityName;
+
+    protected AbstractPersistenceAdapter(String entityName) {
+        this.entityName = entityName;
+    }
+
+    /**
      * Runs {@code action} and translates whatever Spring Data throws into a
      * {@link DomainException}.
      *
      * @param action           the JPA repository call to run.
-     * @param entityName       human-readable entity name for the resulting exception's
-     *                         message (e.g. {@code "Product"}).
      * @param identifier       the business identifier involved (e.g. a product name), for
      *                         the resulting exception's message.
      * @param duplicateSupplier builds the entity-specific exception to throw when the
@@ -49,7 +59,6 @@ public abstract class AbstractPersistenceAdapter {
      */
     protected <T> T executeAndTranslate(
             Supplier<T> action,
-            String entityName,
             String identifier,
             BiFunction<String, String, DomainException> duplicateSupplier) {
 
@@ -84,8 +93,8 @@ public abstract class AbstractPersistenceAdapter {
      * as a generic constraint violation rather than requiring every read-only call
      * site to invent a throwaway duplicate handler it will never see used.
      */
-    protected <T> T executeAndTranslate(Supplier<T> action, String entityName, String identifier) {
-        return executeAndTranslate(action, entityName, identifier, (name, id) -> {
+    protected <T> T executeAndTranslate(Supplier<T> action, String identifier) {
+        return executeAndTranslate(action, identifier, (name, id) -> {
             throw new PersistenceDataValidationException(
                     "Unexpected duplicate-key signal for a non-create operation on %s [%s]".formatted(name, id),
                     null);

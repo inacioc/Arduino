@@ -16,6 +16,7 @@ public class CustomerPersistenceAdapter extends AbstractPersistenceAdapter imple
     private final CustomerEntityMapper mapper;
 
     public CustomerPersistenceAdapter(CustomerJpaRepository jpaRepository, CustomerEntityMapper mapper) {
+        super("Customer");
         this.jpaRepository = jpaRepository;
         this.mapper        = mapper;
     }
@@ -29,7 +30,6 @@ public class CustomerPersistenceAdapter extends AbstractPersistenceAdapter imple
         // not deferred to commit.
         return executeAndTranslate(
                 () -> mapper.toDomain(jpaRepository.saveAndFlush(mapper.toEntity(customer))),
-                "Customer",
                 customer.getEmail(),
                 (entityName, email) -> new CustomerAlreadyExistsException(email));
     }
@@ -38,21 +38,21 @@ public class CustomerPersistenceAdapter extends AbstractPersistenceAdapter imple
     public Optional<Customer> findById(UUID id) {
         return executeAndTranslate(
                 () -> jpaRepository.findById(id).map(mapper::toDomain),
-                "Customer", id.toString());
+                id.toString());
     }
 
     @Override
     public Optional<Customer> findByEmail(String email) {
         return executeAndTranslate(
                 () -> jpaRepository.findByEmail(email).map(mapper::toDomain),
-                "Customer", email);
+                email);
     }
 
     @Override
     public List<Customer> findAll() {
         return executeAndTranslate(
                 () -> jpaRepository.findAll().stream().map(mapper::toDomain).toList(),
-                "Customer", "all");
+                "all");
     }
 
     @Override
@@ -60,6 +60,6 @@ public class CustomerPersistenceAdapter extends AbstractPersistenceAdapter imple
         executeAndTranslate(() -> {
             jpaRepository.deleteById(id);
             return null;
-        }, "Customer", id.toString());
+        }, id.toString());
     }
 }
