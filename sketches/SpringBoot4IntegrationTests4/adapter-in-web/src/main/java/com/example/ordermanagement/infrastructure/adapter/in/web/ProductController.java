@@ -1,6 +1,7 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
 import com.example.ordermanagement.domain.exception.ProductNotFoundException;
+import com.example.ordermanagement.domain.port.in.DeleteProductUseCase;
 import com.example.ordermanagement.domain.port.in.GetProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase.SaveProductCommand;
@@ -21,10 +22,13 @@ public class ProductController {
 
     private final SaveProductUseCase saveProduct;
     private final GetProductUseCase getProduct;
+    private final DeleteProductUseCase deleteProduct;
 
-    public ProductController(SaveProductUseCase saveProduct, GetProductUseCase getProduct) {
-        this.saveProduct = saveProduct;
-        this.getProduct  = getProduct;
+    public ProductController(SaveProductUseCase saveProduct, GetProductUseCase getProduct,
+                              DeleteProductUseCase deleteProduct) {
+        this.saveProduct   = saveProduct;
+        this.getProduct    = getProduct;
+        this.deleteProduct = deleteProduct;
     }
 
     @PostMapping
@@ -50,5 +54,20 @@ public class ProductController {
         return getProduct.findAll().stream()
                 .map(ProductResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public ProductResponse getByName(@RequestParam String name) {
+        return getProduct.findByName(name)
+                .map(ProductResponse::from)
+                .orElseThrow(() -> new ProductNotFoundException(name));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        deleteProduct.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

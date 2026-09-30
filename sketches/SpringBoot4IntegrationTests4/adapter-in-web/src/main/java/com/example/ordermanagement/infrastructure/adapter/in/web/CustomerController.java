@@ -1,6 +1,7 @@
 package com.example.ordermanagement.infrastructure.adapter.in.web;
 
 import com.example.ordermanagement.domain.exception.CustomerNotFoundException;
+import com.example.ordermanagement.domain.port.in.DeleteCustomerUseCase;
 import com.example.ordermanagement.domain.port.in.GetCustomerUseCase;
 import com.example.ordermanagement.domain.port.in.SaveCustomerUseCase;
 import com.example.ordermanagement.domain.port.in.SaveCustomerUseCase.SaveCustomerCommand;
@@ -21,10 +22,13 @@ public class CustomerController {
 
     private final SaveCustomerUseCase saveCustomer;
     private final GetCustomerUseCase getCustomer;
+    private final DeleteCustomerUseCase deleteCustomer;
 
-    public CustomerController(SaveCustomerUseCase saveCustomer, GetCustomerUseCase getCustomer) {
-        this.saveCustomer = saveCustomer;
-        this.getCustomer  = getCustomer;
+    public CustomerController(SaveCustomerUseCase saveCustomer, GetCustomerUseCase getCustomer,
+                               DeleteCustomerUseCase deleteCustomer) {
+        this.saveCustomer   = saveCustomer;
+        this.getCustomer    = getCustomer;
+        this.deleteCustomer = deleteCustomer;
     }
 
     @PostMapping
@@ -50,5 +54,20 @@ public class CustomerController {
         return getCustomer.findAll().stream()
                 .map(CustomerResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CustomerResponse getByEmail(@RequestParam String email) {
+        return getCustomer.findByEmail(email)
+                .map(CustomerResponse::from)
+                .orElseThrow(() -> new CustomerNotFoundException(email));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        deleteCustomer.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

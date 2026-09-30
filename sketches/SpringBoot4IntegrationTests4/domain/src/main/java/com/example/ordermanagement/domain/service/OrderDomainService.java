@@ -7,6 +7,7 @@ import com.example.ordermanagement.domain.model.OrderItem;
 import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.model.Product;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase;
+import com.example.ordermanagement.domain.port.in.DeleteOrderUseCase;
 import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import com.example.ordermanagement.domain.port.out.OrderEventPort;
@@ -23,7 +24,7 @@ import java.util.UUID;
 
 @Service
 @Transactional
-public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, ProcessOrderUseCase {
+public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, ProcessOrderUseCase, DeleteOrderUseCase {
 
     private final OrderRepositoryPort orderRepository;
     private final ProductRepositoryPort productRepository;
@@ -106,6 +107,14 @@ public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, 
         Order saved = orderRepository.save(order);
         orderStatusEvents.cancelled(saved);
         return saved;
+    }
+
+    // ── DeleteOrderUseCase ────────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID orderId) {
+        findOrThrow(orderId);
+        orderRepository.deleteById(orderId);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

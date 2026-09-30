@@ -6,6 +6,7 @@ import com.example.ordermanagement.domain.model.OrderStatus;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.CreateOrderCommand;
 import com.example.ordermanagement.domain.port.in.CreateOrderUseCase.OrderItemCommand;
+import com.example.ordermanagement.domain.port.in.DeleteOrderUseCase;
 import com.example.ordermanagement.domain.port.in.GetOrderUseCase;
 import com.example.ordermanagement.domain.port.in.ProcessOrderUseCase;
 import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
@@ -26,13 +27,16 @@ public class OrderController {
     private final CreateOrderUseCase createOrder;
     private final GetOrderUseCase getOrder;
     private final ProcessOrderUseCase processOrder;
+    private final DeleteOrderUseCase deleteOrder;
 
     public OrderController(CreateOrderUseCase createOrder,
                            GetOrderUseCase getOrder,
-                           ProcessOrderUseCase processOrder) {
+                           ProcessOrderUseCase processOrder,
+                           DeleteOrderUseCase deleteOrder) {
         this.createOrder  = createOrder;
         this.getOrder     = getOrder;
         this.processOrder = processOrder;
+        this.deleteOrder  = deleteOrder;
     }
 
     @PostMapping
@@ -93,5 +97,12 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
     public OrderResponse cancel(@PathVariable UUID id) {
         return OrderResponse.from(processOrder.cancelOrder(id));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        deleteOrder.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

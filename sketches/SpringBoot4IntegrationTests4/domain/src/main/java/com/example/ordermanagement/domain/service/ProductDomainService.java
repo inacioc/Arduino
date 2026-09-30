@@ -1,6 +1,8 @@
 package com.example.ordermanagement.domain.service;
 
+import com.example.ordermanagement.domain.exception.ProductNotFoundException;
 import com.example.ordermanagement.domain.model.Product;
+import com.example.ordermanagement.domain.port.in.DeleteProductUseCase;
 import com.example.ordermanagement.domain.port.in.GetProductUseCase;
 import com.example.ordermanagement.domain.port.in.SaveProductUseCase;
 import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
@@ -22,7 +24,7 @@ import java.util.UUID;
  */
 @Service
 @Transactional
-public class ProductDomainService implements GetProductUseCase, SaveProductUseCase {
+public class ProductDomainService implements GetProductUseCase, SaveProductUseCase, DeleteProductUseCase {
 
     private final ProductRepositoryPort productRepository;
     private final SaveProductValidator saveProductValidator;
@@ -58,7 +60,28 @@ public class ProductDomainService implements GetProductUseCase, SaveProductUseCa
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<Product> findByName(String name) {
+        return productRepository.findByName(name);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Product> findAll() {
         return productRepository.findAll();
+    }
+
+    // ── DeleteProductUseCase ────────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID productId) {
+        findOrThrow(productId);
+        productRepository.deleteById(productId);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private Product findOrThrow(UUID productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
     }
 }

@@ -10,5 +10,8 @@ public interface GetCustomerUseCase {
 
     Optional<Customer> findById(UUID customerId);
 
+    /** The customer currently holding this email, if any - email is the business key. */
+    Optional<Customer> findByEmail(String email);
+
     List<Customer> findAll();
 }

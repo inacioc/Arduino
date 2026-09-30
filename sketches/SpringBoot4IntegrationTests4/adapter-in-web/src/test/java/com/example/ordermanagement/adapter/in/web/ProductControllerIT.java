@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -154,5 +155,60 @@ class ProductControllerIT extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    // ── GET /api/products/search?name= ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET /api/products/search?name= - returns 200 with the product when found")
+    void getByName_found() throws Exception {
+        productRepository.save(Product.create(PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true));
+
+        mockMvc.perform(get("/api/products/search")
+                        .param("name", "Widget Alpha")
+                        .with(JwtHelper.customerToken("customer-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(PRODUCT_ID.toString()));
+    }
+
+    @Test
+    @DisplayName("GET /api/products/search?name= - returns 404 when no product holds that name")
+    void getByName_notFound() throws Exception {
+        mockMvc.perform(get("/api/products/search")
+                        .param("name", "Nonexistent")
+                        .with(JwtHelper.customerToken("customer-1")))
+                .andExpect(status().isNotFound());
+    }
+
+    // ── DELETE /api/products/{id} ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DELETE /api/products/{id} - ADMIN deletes an existing product and returns 204")
+    void delete_asAdmin_returns204() throws Exception {
+        productRepository.save(Product.create(PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true));
+
+        mockMvc.perform(delete("/api/products/{id}", PRODUCT_ID)
+                        .with(JwtHelper.adminToken()))
+                .andExpect(status().isNoContent());
+
+        assertThat(productRepository.findById(PRODUCT_ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("DELETE /api/products/{id} - returns 404 when the product does not exist")
+    void delete_notFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/products/{id}", UUID.randomUUID())
+                        .with(JwtHelper.adminToken()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/products/{id} - returns 403 when a CUSTOMER tries to delete")
+    void delete_asCustomer_forbidden() throws Exception {
+        productRepository.save(Product.create(PRODUCT_ID, "Widget Alpha", new BigDecimal("49.99"), true));
+
+        mockMvc.perform(delete("/api/products/{id}", PRODUCT_ID)
+                        .with(JwtHelper.customerToken("customer-1")))
+                .andExpect(status().isForbidden());
     }
 }

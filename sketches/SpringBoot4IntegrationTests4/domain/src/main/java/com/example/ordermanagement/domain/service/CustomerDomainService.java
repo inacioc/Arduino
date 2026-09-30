@@ -1,6 +1,8 @@
 package com.example.ordermanagement.domain.service;
 
+import com.example.ordermanagement.domain.exception.CustomerNotFoundException;
 import com.example.ordermanagement.domain.model.Customer;
+import com.example.ordermanagement.domain.port.in.DeleteCustomerUseCase;
 import com.example.ordermanagement.domain.port.in.GetCustomerUseCase;
 import com.example.ordermanagement.domain.port.in.SaveCustomerUseCase;
 import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
@@ -19,7 +21,7 @@ import java.util.UUID;
  */
 @Service
 @Transactional
-public class CustomerDomainService implements SaveCustomerUseCase, GetCustomerUseCase {
+public class CustomerDomainService implements SaveCustomerUseCase, GetCustomerUseCase, DeleteCustomerUseCase {
 
     private final CustomerRepositoryPort customerRepository;
     private final SaveCustomerValidator saveCustomerValidator;
@@ -55,7 +57,28 @@ public class CustomerDomainService implements SaveCustomerUseCase, GetCustomerUs
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<Customer> findByEmail(String email) {
+        return customerRepository.findByEmail(email);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Customer> findAll() {
         return customerRepository.findAll();
+    }
+
+    // ── DeleteCustomerUseCase ───────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID customerId) {
+        findOrThrow(customerId);
+        customerRepository.deleteById(customerId);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private Customer findOrThrow(UUID customerId) {
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
     }
 }

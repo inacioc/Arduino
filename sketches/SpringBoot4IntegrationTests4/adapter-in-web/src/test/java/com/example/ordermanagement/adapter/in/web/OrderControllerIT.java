@@ -266,4 +266,38 @@ class OrderControllerIT extends IntegrationTestBase {
                         .with(JwtHelper.customerToken("customer-1")))
                 .andExpect(status().isForbidden());
     }
+
+    // ── DELETE /api/orders/{id} ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DELETE /api/orders/{id} - ADMIN deletes an existing order and returns 204")
+    @Sql(scripts = {"/sql/clean-orders.sql", "/sql/insert-test-orders.sql"},
+         executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void delete_asAdmin_returns204() throws Exception {
+        mockMvc.perform(delete("/api/orders/{id}", PENDING_ORDER_ID)
+                        .with(JwtHelper.adminToken()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/orders/{id}", PENDING_ORDER_ID)
+                        .with(JwtHelper.customerToken("customer-1")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/orders/{id} - returns 404 when the order does not exist")
+    void delete_notFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/orders/{id}", UUID.randomUUID())
+                        .with(JwtHelper.adminToken()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/orders/{id} - returns 403 when a CUSTOMER tries to delete")
+    @Sql(scripts = {"/sql/clean-orders.sql", "/sql/insert-test-orders.sql"},
+         executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    void delete_asCustomer_forbidden() throws Exception {
+        mockMvc.perform(delete("/api/orders/{id}", PENDING_ORDER_ID)
+                        .with(JwtHelper.customerToken("customer-1")))
+                .andExpect(status().isForbidden());
+    }
 }

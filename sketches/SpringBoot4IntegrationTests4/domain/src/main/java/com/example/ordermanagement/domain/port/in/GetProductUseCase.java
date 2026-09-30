@@ -16,5 +16,8 @@ public interface GetProductUseCase {
 
     Optional<Product> findProduct(UUID productId);
 
+    /** The product currently holding this catalogue name, if any - name is the business key. */
+    Optional<Product> findByName(String name);
+
     List<Product> findAll();
 }
