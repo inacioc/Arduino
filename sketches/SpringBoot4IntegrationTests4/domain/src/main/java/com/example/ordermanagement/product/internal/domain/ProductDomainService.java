@@ -1,0 +1,87 @@
+package com.example.ordermanagement.product.internal.domain;
+
+import com.example.ordermanagement.product.ProductNotFoundException;
+import com.example.ordermanagement.product.Product;
+import com.example.ordermanagement.product.DeleteProductUseCase;
+import com.example.ordermanagement.product.GetProductUseCase;
+import com.example.ordermanagement.product.SaveProductUseCase;
+import com.example.ordermanagement.product.internal.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.product.internal.domain.SaveProductValidator;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Domain service for products.
+ * <p>
+ * Mirrors {@link OrderDomainService}: it drives the outbound
+ * {@link ProductRepositoryPort} for persistence and returns the rich
+ * {@link Product} aggregate directly (pragmatic style). Driving adapters map
+ * the aggregate to their transport DTOs at the edge.
+ */
+@Service
+@Transactional
+public class ProductDomainService implements GetProductUseCase, SaveProductUseCase, DeleteProductUseCase {
+
+    private final ProductRepositoryPort productRepository;
+    private final SaveProductValidator saveProductValidator;
+
+    public ProductDomainService(ProductRepositoryPort productRepository,
+                                 SaveProductValidator saveProductValidator) {
+        this.productRepository = productRepository;
+        this.saveProductValidator = saveProductValidator;
+    }
+
+    // ── SaveProductUseCase ──────────────────────────────────────────────────────
+
+    @Override
+    public Product save(SaveProductCommand command) {
+        saveProductValidator.assertValid(command);
+
+        Product product = Product.create(
+                command.id(),
+                command.name(),
+                command.price(),
+                command.available()
+        );
+        return productRepository.save(product);
+    }
+
+    // ── GetProductUseCase ───────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Product> findProduct(UUID productId) {
+        return productRepository.findById(productId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Product> findByName(String name) {
+        return productRepository.findByName(name);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Product> findAll() {
+        return productRepository.findAll();
+    }
+
+    // ── DeleteProductUseCase ────────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID productId) {
+        findOrThrow(productId);
+        productRepository.deleteById(productId);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private Product findOrThrow(UUID productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
+    }
+}

@@ -15,8 +15,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Launch with: {@code --inputFile=orders-in.csv --outputFile=orders-out.csv}
  */
 @SpringBootApplication(scanBasePackages = {
-        "com.example.ordermanagement.infrastructure.adapter.out.batch",
-        "com.example.ordermanagement.infrastructure.adapter.out.persistence"
+        "com.example.ordermanagement.order.internal.adapter.out.batch",
+        "com.example.ordermanagement.order.internal.adapter.out.persistence",
+        "com.example.ordermanagement.customer.internal.adapter.out.persistence",
+        "com.example.ordermanagement.product.internal.adapter.out.persistence"
 })
 public class BatchApplication {
 

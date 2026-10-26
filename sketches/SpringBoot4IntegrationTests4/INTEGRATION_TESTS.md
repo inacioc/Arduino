@@ -2,23 +2,29 @@
 
 ## Architecture
 
+Packages are organised as Spring Modulith modules (one per business capability); the
+files below are spread over the Maven modules `domain`, `adapter-out-*`, `adapter-events`
+and `adapter-in-web`, but share these package roots:
+
 ```
 src/
 ├── main/java/com/example/ordermanagement/
-│   ├── domain/
-│   │   ├── model/           # Order, OrderItem, OrderStatus (pure Java, no framework)
-│   │   ├── port/
-│   │   │   ├── in/          # Use case interfaces: CreateOrderUseCase, etc.
-│   │   │   └── out/         # Driven port interfaces: OrderRepositoryPort, etc.
-│   │   └── service/         # OrderDomainService (implements all use cases)
-│   └── infrastructure/
-│       ├── adapter/
-│       │   ├── in/web/      # OrderController, GlobalExceptionHandler
-│       │   └── out/
-│       │       ├── persistence/  # JPA entities, OrderPersistenceAdapter, ProductPersistenceAdapter
-│       │       ├── messaging/    # OrderMqPublisher, OrderMqListener (IBM MQ)
-│       │       └── batch/        # Spring Batch 5 job (CONFIRMED → COMPLETED)
-│       └── config/          # SecurityConfig (Keycloak), JmsConfig
+│   ├── order/                   # module "order"
+│   │   ├── *UseCase, Order*Event, OrderNotFoundException   # public API (root)
+│   │   └── internal/
+│   │       ├── domain/          # Order, OrderItem, OrderStatus, OrderDomainService, CreateOrderValidator
+│   │       ├── port/out/        # Driven ports: OrderRepositoryPort, OrderEventPort, ...
+│   │       └── adapter/
+│   │           ├── in/web/      # OrderController + DTOs
+│   │           ├── out/persistence/  # JPA entities, OrderPersistenceAdapter
+│   │           ├── out/messaging/    # OrderMqPublisher, OrderMqListener (IBM MQ)
+│   │           ├── out/batch/        # Spring Batch 5 job (CONFIRMED → COMPLETED)
+│   │           └── events/           # OrderStatusEventPublisher (Spring Modulith events)
+│   ├── customer/                # module "customer" (same shape: Customer aggregate + use cases at the root)
+│   ├── product/                 # module "product"  (same shape)
+│   ├── notification/            # module "notification": audit + simulated e-mail listeners
+│   ├── shared/                  # exceptions hierarchy, DomainValidator, ValidationNotification
+│   └── infrastructure/          # config/ (SecurityConfig, JmsConfig), web/ (GlobalExceptionHandler, error/)
 └── test/
     ├── support/             # IntegrationTestBase, JwtHelper, TestSecurityConfig
     └── adapter/

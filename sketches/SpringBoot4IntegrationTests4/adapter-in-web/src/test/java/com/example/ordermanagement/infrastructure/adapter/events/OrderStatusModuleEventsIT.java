@@ -1,7 +1,7 @@
 package com.example.ordermanagement.infrastructure.adapter.events;
 
-import com.example.ordermanagement.domain.event.OrderCancelledEvent;
-import com.example.ordermanagement.domain.event.OrderConfirmedEvent;
+import com.example.ordermanagement.order.OrderCancelledEvent;
+import com.example.ordermanagement.order.OrderConfirmedEvent;
 import com.example.ordermanagement.support.IntegrationTestBase;
 import com.example.ordermanagement.support.JwtHelper;
 import org.junit.jupiter.api.DisplayName;

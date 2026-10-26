@@ -13,7 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * not present on this module's classpath).
  */
 @SpringBootApplication(scanBasePackages = {
-        "com.example.ordermanagement.infrastructure.adapter.out.messaging",
+        "com.example.ordermanagement.order.internal.adapter.out.messaging",
         "com.example.ordermanagement.infrastructure.config"
 })
 public class MessagingApplication {

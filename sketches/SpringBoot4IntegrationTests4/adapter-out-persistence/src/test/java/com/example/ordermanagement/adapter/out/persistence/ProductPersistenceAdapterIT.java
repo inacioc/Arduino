@@ -1,7 +1,7 @@
 package com.example.ordermanagement.adapter.out.persistence;
 
-import com.example.ordermanagement.domain.model.Product;
-import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.product.Product;
+import com.example.ordermanagement.product.internal.port.out.ProductRepositoryPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

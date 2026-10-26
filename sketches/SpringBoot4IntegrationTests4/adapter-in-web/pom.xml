@@ -78,6 +78,13 @@
             <artifactId>spring-modulith-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Documenter: generates the module diagrams (PlantUML) and module canvases (AsciiDoc)
+             into target/spring-modulith-docs, see ModulithDocumentationTest. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-docs</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

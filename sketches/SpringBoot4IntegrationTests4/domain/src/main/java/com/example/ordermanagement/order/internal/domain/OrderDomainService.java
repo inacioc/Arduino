@@ -1,0 +1,133 @@
+package com.example.ordermanagement.order.internal.domain;
+
+import com.example.ordermanagement.order.OrderNotFoundException;
+import com.example.ordermanagement.product.ProductNotFoundException;
+import com.example.ordermanagement.order.internal.domain.Order;
+import com.example.ordermanagement.order.internal.domain.OrderItem;
+import com.example.ordermanagement.order.internal.domain.OrderStatus;
+import com.example.ordermanagement.product.Product;
+import com.example.ordermanagement.order.CreateOrderUseCase;
+import com.example.ordermanagement.order.DeleteOrderUseCase;
+import com.example.ordermanagement.order.GetOrderUseCase;
+import com.example.ordermanagement.order.ProcessOrderUseCase;
+import com.example.ordermanagement.order.internal.port.out.OrderEventPort;
+import com.example.ordermanagement.order.internal.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.order.internal.port.out.OrderStatusEventPort;
+import com.example.ordermanagement.product.internal.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.order.internal.domain.CreateOrderValidator;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+@Transactional
+public class OrderDomainService implements CreateOrderUseCase, GetOrderUseCase, ProcessOrderUseCase, DeleteOrderUseCase {
+
+    private final OrderRepositoryPort orderRepository;
+    private final ProductRepositoryPort productRepository;
+    private final OrderEventPort orderEvents;
+    private final OrderStatusEventPort orderStatusEvents;
+    private final CreateOrderValidator createOrderValidator;
+
+    public OrderDomainService(OrderRepositoryPort orderRepository,
+                               ProductRepositoryPort productRepository,
+                               OrderEventPort orderEvents,
+                               OrderStatusEventPort orderStatusEvents,
+                               CreateOrderValidator createOrderValidator) {
+        this.orderRepository   = orderRepository;
+        this.productRepository = productRepository;
+        this.orderEvents       = orderEvents;
+        this.orderStatusEvents = orderStatusEvents;
+        this.createOrderValidator = createOrderValidator;
+    }
+
+    // ── CreateOrderUseCase ────────────────────────────────────────────────────
+
+    @Override
+    public Order createOrder(CreateOrderCommand command) {
+        createOrderValidator.assertValid(command);
+
+        List<OrderItem> items = command.items().stream().map(this::toOrderItem).toList();
+        Order order = Order.create(command.customerId(), items);
+        Order saved = orderRepository.save(order);
+
+        orderEvents.publishOrderCreated(saved);
+        return saved;
+    }
+
+    // ── GetOrderUseCase ───────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Order> findById(UUID orderId) {
+        return orderRepository.findById(orderId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> findByStatus(OrderStatus status) {
+        return orderRepository.findByStatus(status);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> findByCustomerId(UUID customerId) {
+        return orderRepository.findByCustomerId(customerId);
+    }
+
+    // ── ProcessOrderUseCase ───────────────────────────────────────────────────
+
+    @Override
+    public Order confirmOrder(UUID orderId) {
+        Order order = findOrThrow(orderId);
+        order.confirm();
+        Order saved = orderRepository.save(order);
+        orderStatusEvents.confirmed(saved);
+        return saved;
+    }
+
+    @Override
+    public Order completeOrder(UUID orderId) {
+        Order order = findOrThrow(orderId);
+        order.startProcessing();
+        order.complete();
+        Order saved = orderRepository.save(order);
+        orderEvents.publishOrderCompleted(saved);
+        orderStatusEvents.completed(saved);
+        return saved;
+    }
+
+    @Override
+    public Order cancelOrder(UUID orderId) {
+        Order order = findOrThrow(orderId);
+        order.cancel();
+        Order saved = orderRepository.save(order);
+        orderStatusEvents.cancelled(saved);
+        return saved;
+    }
+
+    // ── DeleteOrderUseCase ────────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID orderId) {
+        findOrThrow(orderId);
+        orderRepository.deleteById(orderId);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private OrderItem toOrderItem(OrderItemCommand line) {
+        // Already found by the validator moments ago, in this same transaction.
+        Product product = productRepository.findById(line.productId())
+                .orElseThrow(() -> new ProductNotFoundException(line.productId().toString()));
+        return new OrderItem(product.getId(), product.getName(), line.quantity(), line.unitPrice());
+    }
+
+    private Order findOrThrow(UUID orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId.toString()));
+    }
+}

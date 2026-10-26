@@ -1,0 +1,84 @@
+package com.example.ordermanagement.customer.internal.domain;
+
+import com.example.ordermanagement.customer.CustomerNotFoundException;
+import com.example.ordermanagement.customer.Customer;
+import com.example.ordermanagement.customer.DeleteCustomerUseCase;
+import com.example.ordermanagement.customer.GetCustomerUseCase;
+import com.example.ordermanagement.customer.SaveCustomerUseCase;
+import com.example.ordermanagement.customer.internal.port.out.CustomerRepositoryPort;
+import com.example.ordermanagement.customer.internal.domain.SaveCustomerValidator;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Domain service for customers. Mirrors {@link ProductDomainService}: it drives the
+ * outbound {@link CustomerRepositoryPort} and returns the rich {@link Customer} aggregate
+ * directly (pragmatic style) for the driving adapter to map at the edge.
+ */
+@Service
+@Transactional
+public class CustomerDomainService implements SaveCustomerUseCase, GetCustomerUseCase, DeleteCustomerUseCase {
+
+    private final CustomerRepositoryPort customerRepository;
+    private final SaveCustomerValidator saveCustomerValidator;
+
+    public CustomerDomainService(CustomerRepositoryPort customerRepository,
+                                  SaveCustomerValidator saveCustomerValidator) {
+        this.customerRepository = customerRepository;
+        this.saveCustomerValidator = saveCustomerValidator;
+    }
+
+    // ── SaveCustomerUseCase ─────────────────────────────────────────────────────
+
+    @Override
+    public Customer save(SaveCustomerCommand command) {
+        saveCustomerValidator.assertValid(command);
+
+        Customer customer = Customer.create(
+                command.firstName(),
+                command.lastName(),
+                command.telephone(),
+                command.email()
+        );
+        return customerRepository.save(customer);
+    }
+
+    // ── GetCustomerUseCase ──────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Customer> findById(UUID customerId) {
+        return customerRepository.findById(customerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Customer> findByEmail(String email) {
+        return customerRepository.findByEmail(email);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Customer> findAll() {
+        return customerRepository.findAll();
+    }
+
+    // ── DeleteCustomerUseCase ───────────────────────────────────────────────────
+
+    @Override
+    public void deleteById(UUID customerId) {
+        findOrThrow(customerId);
+        customerRepository.deleteById(customerId);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private Customer findOrThrow(UUID customerId) {
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
+    }
+}

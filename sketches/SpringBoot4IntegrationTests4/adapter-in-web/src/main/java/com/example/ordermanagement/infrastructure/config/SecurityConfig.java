@@ -1,7 +1,7 @@
 package com.example.ordermanagement.infrastructure.config;
 
-import com.example.ordermanagement.infrastructure.adapter.in.web.error.RestAccessDeniedHandler;
-import com.example.ordermanagement.infrastructure.adapter.in.web.error.RestAuthenticationEntryPoint;
+import com.example.ordermanagement.infrastructure.web.error.RestAccessDeniedHandler;
+import com.example.ordermanagement.infrastructure.web.error.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;

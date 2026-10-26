@@ -1,15 +1,15 @@
 package com.example.ordermanagement;
 
-import com.example.ordermanagement.domain.model.Customer;
-import com.example.ordermanagement.domain.model.Order;
-import com.example.ordermanagement.domain.model.OrderStatus;
-import com.example.ordermanagement.domain.model.Product;
-import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
-import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
-import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
-import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
-import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderItemRequest;
-import com.example.ordermanagement.infrastructure.adapter.out.messaging.OrderEvent;
+import com.example.ordermanagement.customer.Customer;
+import com.example.ordermanagement.order.internal.domain.Order;
+import com.example.ordermanagement.order.internal.domain.OrderStatus;
+import com.example.ordermanagement.product.Product;
+import com.example.ordermanagement.customer.internal.port.out.CustomerRepositoryPort;
+import com.example.ordermanagement.order.internal.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.product.internal.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.order.internal.adapter.in.web.CreateOrderRequest;
+import com.example.ordermanagement.order.internal.adapter.in.web.OrderItemRequest;
+import com.example.ordermanagement.order.internal.adapter.out.messaging.OrderEvent;
 import com.example.ordermanagement.support.IntegrationTestBase;
 import com.example.ordermanagement.support.JwtHelper;
 import org.junit.jupiter.api.BeforeEach;

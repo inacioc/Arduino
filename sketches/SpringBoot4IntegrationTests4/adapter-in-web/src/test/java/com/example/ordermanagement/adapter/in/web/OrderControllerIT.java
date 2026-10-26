@@ -1,11 +1,11 @@
 package com.example.ordermanagement.adapter.in.web;
 
-import com.example.ordermanagement.domain.model.Customer;
-import com.example.ordermanagement.domain.model.Product;
-import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
-import com.example.ordermanagement.domain.port.out.ProductRepositoryPort;
-import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateOrderRequest;
-import com.example.ordermanagement.infrastructure.adapter.in.web.dto.OrderItemRequest;
+import com.example.ordermanagement.customer.Customer;
+import com.example.ordermanagement.product.Product;
+import com.example.ordermanagement.customer.internal.port.out.CustomerRepositoryPort;
+import com.example.ordermanagement.product.internal.port.out.ProductRepositoryPort;
+import com.example.ordermanagement.order.internal.adapter.in.web.CreateOrderRequest;
+import com.example.ordermanagement.order.internal.adapter.in.web.OrderItemRequest;
 import com.example.ordermanagement.support.IntegrationTestBase;
 import com.example.ordermanagement.support.JwtHelper;
 import org.junit.jupiter.api.BeforeEach;

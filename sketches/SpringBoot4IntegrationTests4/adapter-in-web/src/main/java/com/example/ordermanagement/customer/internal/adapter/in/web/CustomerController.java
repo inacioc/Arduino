@@ -1,0 +1,73 @@
+package com.example.ordermanagement.customer.internal.adapter.in.web;
+
+import com.example.ordermanagement.customer.CustomerNotFoundException;
+import com.example.ordermanagement.customer.DeleteCustomerUseCase;
+import com.example.ordermanagement.customer.GetCustomerUseCase;
+import com.example.ordermanagement.customer.SaveCustomerUseCase;
+import com.example.ordermanagement.customer.SaveCustomerUseCase.SaveCustomerCommand;
+import com.example.ordermanagement.customer.internal.adapter.in.web.CreateCustomerRequest;
+import com.example.ordermanagement.customer.internal.adapter.in.web.CustomerResponse;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/customers")
+public class CustomerController {
+
+    private final SaveCustomerUseCase saveCustomer;
+    private final GetCustomerUseCase getCustomer;
+    private final DeleteCustomerUseCase deleteCustomer;
+
+    public CustomerController(SaveCustomerUseCase saveCustomer, GetCustomerUseCase getCustomer,
+                               DeleteCustomerUseCase deleteCustomer) {
+        this.saveCustomer   = saveCustomer;
+        this.getCustomer    = getCustomer;
+        this.deleteCustomer = deleteCustomer;
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CustomerResponse> create(@Valid @RequestBody CreateCustomerRequest request) {
+        SaveCustomerCommand command = new SaveCustomerCommand(
+                request.firstName(), request.lastName(), request.telephone(), request.email());
+        CustomerResponse body = CustomerResponse.from(saveCustomer.save(command));
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public CustomerResponse getById(@PathVariable UUID id) {
+        return getCustomer.findById(id)
+                .map(CustomerResponse::from)
+                .orElseThrow(() -> new CustomerNotFoundException(id.toString()));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<CustomerResponse> getAll() {
+        return getCustomer.findAll().stream()
+                .map(CustomerResponse::from)
+                .toList();
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CustomerResponse getByEmail(@RequestParam String email) {
+        return getCustomer.findByEmail(email)
+                .map(CustomerResponse::from)
+                .orElseThrow(() -> new CustomerNotFoundException(email));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        deleteCustomer.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+}

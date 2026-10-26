@@ -1,8 +1,8 @@
 package com.example.ordermanagement.adapter.in.web;
 
-import com.example.ordermanagement.domain.model.Customer;
-import com.example.ordermanagement.domain.port.out.CustomerRepositoryPort;
-import com.example.ordermanagement.infrastructure.adapter.in.web.dto.CreateCustomerRequest;
+import com.example.ordermanagement.customer.Customer;
+import com.example.ordermanagement.customer.internal.port.out.CustomerRepositoryPort;
+import com.example.ordermanagement.customer.internal.adapter.in.web.CreateCustomerRequest;
 import com.example.ordermanagement.support.IntegrationTestBase;
 import com.example.ordermanagement.support.JwtHelper;
 import org.junit.jupiter.api.DisplayName;

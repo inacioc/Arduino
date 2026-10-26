@@ -15,8 +15,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootConfiguration
 @EnableAutoConfiguration
-@ComponentScan("com.example.ordermanagement.infrastructure.adapter.out.persistence")
-@EntityScan("com.example.ordermanagement.infrastructure.adapter.out.persistence")
-@EnableJpaRepositories("com.example.ordermanagement.infrastructure.adapter.out.persistence")
+@ComponentScan({"com.example.ordermanagement.order.internal.adapter.out.persistence", "com.example.ordermanagement.customer.internal.adapter.out.persistence", "com.example.ordermanagement.product.internal.adapter.out.persistence", "com.example.ordermanagement.shared"})
+@EntityScan({"com.example.ordermanagement.order.internal.adapter.out.persistence", "com.example.ordermanagement.customer.internal.adapter.out.persistence", "com.example.ordermanagement.product.internal.adapter.out.persistence"})
+@EnableJpaRepositories({"com.example.ordermanagement.order.internal.adapter.out.persistence", "com.example.ordermanagement.customer.internal.adapter.out.persistence", "com.example.ordermanagement.product.internal.adapter.out.persistence"})
 public class PersistenceTestApplication {
 }

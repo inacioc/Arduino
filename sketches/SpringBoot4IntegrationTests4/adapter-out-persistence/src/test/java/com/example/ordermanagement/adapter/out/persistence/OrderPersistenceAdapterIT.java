@@ -1,9 +1,9 @@
 package com.example.ordermanagement.adapter.out.persistence;
 
-import com.example.ordermanagement.domain.model.Order;
-import com.example.ordermanagement.domain.model.OrderItem;
-import com.example.ordermanagement.domain.model.OrderStatus;
-import com.example.ordermanagement.domain.port.out.OrderRepositoryPort;
+import com.example.ordermanagement.order.internal.domain.Order;
+import com.example.ordermanagement.order.internal.domain.OrderItem;
+import com.example.ordermanagement.order.internal.domain.OrderStatus;
+import com.example.ordermanagement.order.internal.port.out.OrderRepositoryPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

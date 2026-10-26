@@ -13,7 +13,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * is neither detected nor component-scanned.
  */
 @SpringBootApplication(scanBasePackages = {
-        "com.example.ordermanagement.domain",
+        "com.example.ordermanagement.order",
+        "com.example.ordermanagement.customer",
+        "com.example.ordermanagement.product",
+        "com.example.ordermanagement.notification",
+        "com.example.ordermanagement.shared",
         "com.example.ordermanagement.infrastructure"
 })
 public class WebApplication {

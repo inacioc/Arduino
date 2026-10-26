@@ -1,9 +1,9 @@
 package com.example.ordermanagement.adapter.out.messaging;
 
-import com.example.ordermanagement.domain.model.Order;
-import com.example.ordermanagement.domain.model.OrderItem;
-import com.example.ordermanagement.domain.port.out.OrderEventPort;
-import com.example.ordermanagement.infrastructure.adapter.out.messaging.OrderEvent;
+import com.example.ordermanagement.order.internal.domain.Order;
+import com.example.ordermanagement.order.internal.domain.OrderItem;
+import com.example.ordermanagement.order.internal.port.out.OrderEventPort;
+import com.example.ordermanagement.order.internal.adapter.out.messaging.OrderEvent;
 import com.example.ordermanagement.messaging.MessagingApplication;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
