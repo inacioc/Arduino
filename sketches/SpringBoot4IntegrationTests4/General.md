@@ -32,9 +32,24 @@ Order Management est une application Java (Spring Boot) qui gère des **commande
 PostgreSQL, échange des messages avec d'autres applications par IBM MQ et exécute un traitement
 planifié (Spring Batch) qui fait passer les commandes confirmées à l'état « complétée ».
 
-Ce document ne décrit pas toutes les fonctionnalités. Il explique **quatre décisions
-d'organisation du code**, parce que ce sont elles qui déterminent la façon dont chaque équipe
-écrit, range et fait évoluer son code. Comprendre ces décisions évite d'écrire du code qui
+**Ce projet n'a pas pour but d'être une gestion de commandes complète et fonctionnelle.** Les
+commandes, clients et produits ne sont qu'un **prétexte** : un sujet assez simple pour que tout
+le monde le comprenne, et assez riche pour illustrer des situations réelles (validation, erreurs,
+messages, événements, traitements planifiés). L'objectif est d'**expliquer et de montrer, sur un
+exemple concret, les aspects liés à l'architecture hexagonale, et au-delà, les pratiques que les
+équipes projet doivent suivre**.
+
+Ce document est le **résultat d'échanges avec plusieurs équipes**. Il n'est pas figé : le
+document comme le projet **peuvent et doivent évoluer dans le temps**, en fonction des retours de
+toutes les personnes concernées : les équipes projet, les architectes et les équipes CI/CD
+(intégration et déploiement continus). Toute remarque ou difficulté rencontrée en appliquant ces
+choix est une contribution utile. Il sert aussi de **référence pour les futurs projets de
+l'entreprise**, qui pourront reprendre la même organisation pour que chacun s'y retrouve d'un
+projet à l'autre.
+
+Ce document ne décrit donc pas toutes les fonctionnalités de l'application. Il explique **quatre
+décisions d'organisation du code**, parce que ce sont elles qui déterminent la façon dont chaque
+équipe écrit, range et fait évoluer son code. Comprendre ces décisions évite d'écrire du code qui
 fonctionne mais qui ne respecte pas l'esprit du projet.
 
 ### 1.2 Les quatre décisions
@@ -170,22 +185,24 @@ Cette organisation répond aux deux problèmes précédents :
 ### 2.3 La structure cible d'un module métier
 
 Voici la structure cible du module `order`. Les modules `customer` et `product` suivent
-exactement la même forme.
+exactement la même forme. Un module métier regroupe **trois blocs** : `application`,
+`domain` et `adapter`.
 
 ```
 order                                  ← package métier : AUCUNE classe à cet endroit
 │
-├── application                        ← le cœur : tout ce qui est indépendant de la technologie
+├── application                        ← l'orchestration : les cas d'utilisation et leurs besoins
 │   ├── port
 │   │   ├── in                         cas d'utilisation (ce que le module offre)
 │   │   │   └── command                données d'entrée des cas d'utilisation
 │   │   └── out                        besoins du module (dépôts, publication d'événements)
 │   ├── service                        implémentation des cas d'utilisation
-│   ├── validator                      validateurs de règles métier
-│   ├── domain                         règles du domaine qui ne tiennent pas dans une seule entité
-│   ├── model                          entités, agrégats, objets-valeur
+│   └── validator                      validateurs de règles métier
+│
+├── domain                             ← le cœur métier : JAVA PUR, aucune dépendance technique
 │   ├── event                          événements publiés par le module
-│   └── exception                      exceptions du module
+│   ├── exception                      exceptions du module
+│   └── model                          entités, agrégats, objets-valeur
 │
 └── adapter                            ← le monde extérieur : tout ce qui dépend d'une technologie
     ├── api
@@ -201,9 +218,10 @@ order                                  ← package métier : AUCUNE classe à ce
         └── out                        émission d'événements (IBM MQ, événements Spring)
 ```
 
-La structure se lit en deux grands blocs, qui correspondent exactement à l'hexagone du chapitre 1 :
+Les trois blocs forment l'hexagone du chapitre 1, vu de l'intérieur vers l'extérieur :
 
-- **`application`** est l'intérieur de l'hexagone : les règles métier et les interfaces (ports). Rien ici ne doit importer Spring MVC, JPA ou JMS.
+- **`domain`** est le centre. Il ne contient que du **Java pur** : pas d'annotation Spring, JPA, JSON ou JMS, aucun import de bibliothèque technique. On y trouve ce qui *est* le métier : les entités et leurs règles (`model`), les faits que le métier produit (`event`) et ses erreurs (`exception`).
+- **`application`** est la couche qui **orchestre** le domaine. Elle déclare ce que le module offre (`port.in`) et ce dont il a besoin (`port.out`), implémente les cas d'utilisation (`service`) et vérifie les règles qui demandent de consulter d'autres données (`validator`). Elle utilise le domaine, mais le domaine ne la connaît pas.
 - **`adapter`** est l'extérieur : les classes qui parlent à une technologie. Les suffixes **`in`** et **`out`** indiquent le sens : `in` = quelque chose **arrive** vers l'application (une requête REST, un message reçu, un traitement planifié qui démarre) ; `out` = l'application **appelle** l'extérieur (écrire en base, publier un événement, appeler une autre API).
 
 ### 2.4 Le rôle de chaque package
@@ -215,10 +233,9 @@ La structure se lit en deux grands blocs, qui correspondent exactement à l'hexa
 | `application.port.out` | Les interfaces des **besoins** du module envers l'extérieur | `OrderRepositoryPort`, `OrderEventPort`, `OrderStatusEventPort` | Du code technique (JPA, JMS) |
 | `application.service` | L'**implémentation** des cas d'utilisation : elle orchestre les étapes | `OrderDomainService` | Des annotations web ou de persistance |
 | `application.validator` | Les **règles métier** de validation d'une demande (chapitre 3) | `CreateOrderValidator` | Des accès directs à la base |
-| `application.domain` | Les règles du domaine **qui ne tiennent pas dans une seule entité** | (aujourd'hui vide : voir remarque ci-dessous) | Des dépendances techniques |
-| `application.model` | Les **entités et agrégats** : objets métier qui protègent leurs règles | `Order`, `OrderItem`, `OrderStatus` | Des annotations JPA ou JSON |
-| `application.event` | Les **événements** publiés par le module (chapitre 5) | `OrderConfirmedEvent`, `OrderCancelledEvent` | De l'API Spring |
-| `application.exception` | Les **exceptions** propres au module | `OrderNotFoundException` | Des détails techniques |
+| `domain.model` | Les **entités et agrégats** : objets métier qui protègent leurs règles | `Order`, `OrderItem`, `OrderStatus` | Des annotations JPA ou JSON, toute dépendance technique |
+| `domain.event` | Les **événements** publiés par le module (chapitre 5) | `OrderConfirmedEvent`, `OrderCancelledEvent` | De l'API Spring |
+| `domain.exception` | Les **exceptions** propres au module | `OrderNotFoundException` | Des détails techniques |
 | `adapter.api.in` | Les **contrôleurs REST** : ils reçoivent la requête et appellent un cas d'utilisation | `OrderController` | Des règles métier |
 | `adapter.api.in.dto` | Les objets de **requête et de réponse** de l'API | `CreateOrderRequest`, `OrderResponse` | Des objets du domaine exposés tels quels |
 | `adapter.api.out` | Les clients qui **appellent d'autres API** | (vide aujourd'hui) | |
@@ -227,11 +244,16 @@ La structure se lit en deux grands blocs, qui correspondent exactement à l'hexa
 | `adapter.event.in` | La **réception** d'événements externes | `OrderMqListener` | |
 | `adapter.event.out` | L'**émission** d'événements | `OrderMqPublisher`, `OrderStatusEventPublisher` | |
 
-> **Remarque sur `model` et `domain`.** `model` contient les objets qui représentent un
-> concept métier et protègent leurs propres règles (une commande, une ligne). `domain`
-> est réservé aux règles du domaine qui impliquent **plusieurs** objets ou qui n'ont pas de
-> « propriétaire » naturel (par exemple un calcul qui combine une commande et un produit).
-> Si vous n'en avez pas besoin, ne créez pas de classe : le package peut rester vide.
+> **Remarque sur `domain` : du Java pur.** Cette règle est la plus importante de la structure.
+> Un test simple le vérifie : *le package `domain` doit pouvoir être compilé sans aucune
+> bibliothèque autre que le JDK* (et les classes communes de `shared`, elles aussi en Java pur).
+> Si vous êtes tenté d'ajouter une annotation Spring ou JPA dans `domain`, la bonne réponse est
+> presque toujours de placer cette annotation dans un adaptateur, et de convertir
+> l'objet (c'est le rôle des *mappers*).
+
+> **Remarque sur `application`.** Contrairement à `domain`, la couche `application` peut dépendre de
+> `domain` et de `shared`, mais aucune technologie d'infrastructure. Les services peuvent porter des annotations Spring
+> légères (`@Service`, `@Transactional`) ; c'est un compromis assumé du projet pour éviter une couche de configuration supplémentaire.
 
 > **Remarque sur `api.out`.** Il est prévu pour les appels vers d'autres systèmes en HTTP. Le
 > projet n'en a pas besoin aujourd'hui ; le package existe pour que sa place soit connue le jour où il faudra l'utiliser.
@@ -239,7 +261,7 @@ La structure se lit en deux grands blocs, qui correspondent exactement à l'hexa
 ### 2.5 Pourquoi rien à la racine du package métier ?
 
 La racine d'un package métier (`order`) **ne contient aucune classe**. Elle sert uniquement de
-dossier qui regroupe `application` et `adapter`.
+dossier qui regroupe `application`, `domain` et `adapter`.
 
 **Pourquoi cette règle ?** Une racine accepte facilement « une petite classe qui ne sait pas où
 aller ». Ces classes s'accumulent, et la racine devient un fourre-tout où l'on ne distingue plus
@@ -267,12 +289,12 @@ Voici les packages à exposer, et seulement eux :
 |---|---|---|
 | `application.port.in` | `api` | Les autres modules appellent les cas d'utilisation |
 | `application.port.in.command` | `api` | Ils ont besoin des objets d'entrée de ces cas d'utilisation |
-| `application.event` | `event` | Les autres modules écoutent les événements |
-| `application.exception` | `exception` | Ils peuvent avoir à reconnaître une exception |
-| `application.model` | `model` | Les cas d'utilisation retournent des objets du domaine (style pragmatique) |
+| `domain.event` | `event` | Les autres modules écoutent les événements |
+| `domain.exception` | `exception` | Ils peuvent avoir à reconnaître une exception |
+| `domain.model` | `model` | Les cas d'utilisation retournent des objets du domaine (style pragmatique) |
 
-Tout le reste (`service`, `validator`, `port.out`, tous les `adapter`) reste **privé** : aucun
-autre module ne doit l'importer.
+Tout le reste (`application.service`, `application.validator`, `application.port.out`, tous les `adapter`) reste **privé** :
+aucun autre module ne doit l'importer.
 
 > **Point à valider.** Le comportement de Spring Modulith avec un package racine totalement vide
 > et plusieurs packages exposés sous un même nom d'interface doit être confirmé par un
@@ -291,12 +313,16 @@ flowchart TB
         DB["database.out<br/>persistance JPA"]
         EOUT["event.out<br/>émission d'événements"]
     end
-    subgraph app ["application (cœur)"]
+    subgraph app ["application (orchestration)"]
         PIN["port.in<br/>cas d'utilisation"]
         SRV["service"]
         VAL["validator"]
-        MOD["model"]
         POUT["port.out<br/>besoins du module"]
+    end
+    subgraph dom ["domain (Java pur)"]
+        MOD["model"]
+        EVT["event"]
+        EXC["exception"]
     end
     API --> PIN
     BIN --> PIN
@@ -305,17 +331,21 @@ flowchart TB
     SRV --> VAL
     SRV --> MOD
     SRV --> POUT
+    VAL --> MOD
+    POUT --> MOD
     DB -.->|"implémente"| POUT
     EOUT -.->|"implémente"| POUT
+    DB --> MOD
 ```
 
 Les règles à respecter :
 
-1. **`application` ne dépend jamais de `adapter`.** Le cœur ignore les technologies.
-2. **Un adaptateur `in` appelle un port d'entrée** (`port.in`) et jamais directement un service ni un dépôt.
-3. **Un adaptateur `out` réalise un port de sortie** (`port.out`). Il ne rappelle jamais un port d'entrée, sinon le flux de contrôle devient circulaire.
-4. **Les entités JPA vivent dans `adapter.database.out`, pas dans `model`.** Les objets du domaine ne portent aucune annotation de persistance ; un *mapper* convertit dans les deux sens.
-5. **Entre modules, on n'utilise que les packages exposés** (section 2.5). Si `order` a besoin d'un client, il appelle `GetCustomerUseCase` ; il n'importe jamais le dépôt de `customer`.
+1. **`domain` ne dépend de rien** d'autre que du JDK et de `shared`. Ni de `application`, ni de `adapter`, ni d'une bibliothèque technique.
+2. **`application` dépend de `domain`, jamais de `adapter`.** La couche d'orchestration ignore les technologies.
+3. **Un adaptateur `in` appelle un port d'entrée** (`port.in`) et jamais directement un service ni un dépôt.
+4. **Un adaptateur `out` réalise un port de sortie** (`port.out`). Il ne rappelle jamais un port d'entrée, sinon le flux de contrôle devient circulaire.
+5. **Les entités JPA vivent dans `adapter.database.out`, pas dans `domain.model`.** Les objets du domaine ne portent aucune annotation de persistance ; un *mapper* convertit dans les deux sens.
+6. **Entre modules, on n'utilise que les packages exposés** (section 2.5). Si `order` a besoin d'un client, il appelle `GetCustomerUseCase` ; il n'importe jamais le dépôt de `customer`.
 
 ### 2.7 Un exemple complet : créer une commande
 
@@ -328,30 +358,30 @@ moyen de voir à quoi sert chaque package.
 | 2 | Il transforme la requête en `CreateOrderCommand` et appelle `CreateOrderUseCase` | `application.port.in` (+ `command`) |
 | 3 | `OrderDomainService` implémente ce cas d'utilisation et lance la validation | `application.service` |
 | 4 | `CreateOrderValidator` vérifie les règles métier : client existant, produits commandables, prix conformes | `application.validator` |
-| 5 | Le service crée l'entité `Order`, qui contrôle ses propres règles | `application.model` |
+| 5 | Le service crée l'entité `Order`, qui contrôle ses propres règles | `domain.model` |
 | 6 | Le service enregistre la commande via `OrderRepositoryPort` | `application.port.out` |
 | 7 | `OrderPersistenceAdapter` réalise ce port : il convertit en entité JPA et écrit en base | `adapter.database.out` |
 | 8 | Le service publie l'information « commande créée » via `OrderEventPort` | `application.port.out` |
 | 9 | `OrderMqPublisher` envoie le message vers IBM MQ | `adapter.event.out` |
 | 10 | Le contrôleur convertit la commande obtenue en `OrderResponse` et répond | `adapter.api.in` (+ `dto`) |
 
-Remarquez que les étapes 3 à 6 et 8 se déroulent dans `application`, sans la moindre
-dépendance technologique : on peut les tester avec de simples tests Java.
+Remarquez que les étapes 3 à 6 et 8 se déroulent sans la moindre dépendance à une
+technologie d'infrastructure : on peut les tester avec de simples tests Java.
 
 ### 2.8 Où placer un nouveau code ?
 
 | Je veux ajouter… | Je le place dans… (sous le module concerné) |
 |---|---|
 | Une nouvelle action métier (cas d'utilisation) | L'interface dans `application.port.in`, son implémentation dans `application.service`, ses données d'entrée dans `application.port.in.command` |
-| Une règle propre à une seule entité | Une méthode de l'entité, dans `application.model` |
+| Une règle propre à une seule entité | Une méthode de l'entité, dans `domain.model` |
 | Une règle de validation d'une demande | `application.validator` |
 | Un nouvel endpoint REST | `adapter.api.in`, avec ses objets dans `adapter.api.in.dto` |
 | Une table ou une entité JPA | `adapter.database.out`, plus un script Liquibase |
 | Un nouveau besoin vers l'extérieur (dépôt, service distant) | L'interface dans `application.port.out`, sa réalisation dans l'adaptateur `out` adapté |
-| Un événement que d'autres modules écoutent | Le `record` dans `application.event` |
+| Un événement que d'autres modules écoutent | Le `record` dans `domain.event` |
 | Un écouteur d'événement | `adapter.event.in` du module qui réagit (ou module `notification`) |
 | Un traitement planifié | `adapter.batch.in` |
-| Une exception métier | `application.exception` (ou `shared` si elle est transverse) |
+| Une exception métier | `domain.exception` (ou `shared` si elle est transverse) |
 
 ### 2.9 Avantages et inconvénients
 
@@ -359,7 +389,7 @@ dépendance technologique : on peut les tester avec de simples tests Java.
 |---|---|
 | Tout ce qui concerne un sujet est au même endroit | Beaucoup de packages à créer pour un nouveau module |
 | Les frontières entre sujets sont visibles et contrôlables | Il faut annoter explicitement l'API publique (`@NamedInterface`) |
-| Le cœur métier est protégé de la technologie, donc testable simplement | Un débutant doit apprendre le vocabulaire (port, adaptateur, `in` / `out`) |
+| Le domaine en Java pur est testable très simplement et ne vieillit pas avec les technologies | Un débutant doit apprendre le vocabulaire (port, adaptateur, `in` / `out`) |
 | Les équipes peuvent travailler sur des modules différents avec peu de collisions | La discipline « on n'importe pas l'intérieur d'un autre module » doit être tenue (Modulith peut la vérifier) |
 | Un module bien isolé pourra devenir un service indépendant si le besoin se présente | Les éléments transverses demandent un arbitrage (`shared`) |
 
@@ -372,9 +402,9 @@ tableau montre où chaque élément doit aller dans la structure cible.
 | Aujourd'hui (sous `order`) | Cible |
 |---|---|
 | `CreateOrderUseCase`, `GetOrderUseCase`… (racine) | `application.port.in` |
-| `OrderConfirmedEvent`, `OrderCompletedEvent`, `OrderCancelledEvent` (racine) | `application.event` |
-| `OrderNotFoundException` (racine) | `application.exception` |
-| `internal.domain.Order`, `OrderItem`, `OrderStatus` | `application.model` |
+| `OrderConfirmedEvent`, `OrderCompletedEvent`, `OrderCancelledEvent` (racine) | `domain.event` |
+| `OrderNotFoundException` (racine) | `domain.exception` |
+| `internal.domain.Order`, `OrderItem`, `OrderStatus` | `domain.model` |
 | `internal.domain.OrderDomainService` | `application.service` |
 | `internal.domain.CreateOrderValidator` | `application.validator` |
 | `internal.port.out.*` | `application.port.out` |
@@ -411,7 +441,7 @@ cas (par exemple quand la commande arrive par un message IBM MQ plutôt que par 
 | Niveau | Question posée | Où | Réponse HTTP |
 |---|---|---|---|
 | **1. Forme de la requête** | Les champs sont-ils présents et bien formés ? | Bean Validation (`@NotNull`, `@Positive`…) sur les DTO, dans `adapter.api.in.dto` | 400 |
-| **2. Invariant d'une entité** | L'objet est-il cohérent en lui-même ? | Dans l'entité (`application.model`) : `Order.create`, `Product.create` | 400 ou 409 |
+| **2. Invariant d'une entité** | L'objet est-il cohérent en lui-même ? | Dans l'entité (`domain.model`) : `Order.create`, `Product.create` | 400 ou 409 |
 | **3. Règle métier fonctionnelle** | La demande respecte-t-elle les règles de l'entreprise ? | Dans un **validateur** (`application.validator`) | 422 |
 
 > **Pourquoi les niveaux 2 et 3 sont dans le domaine ?** Une règle métier doit s'appliquer
@@ -517,12 +547,29 @@ gestionnaire d'erreurs (chapitre 4) de les reconnaître sans avoir à connaître
 
 ### 3.6 Où est la vérité : le validateur ou la base ?
 
-Un validateur peut vérifier « cet e-mail n'est pas déjà utilisé » en interrogeant la base. Cette
-vérification donne une réponse rapide et claire. Mais deux requêtes **simultanées** peuvent
-passer toutes les deux la vérification avant qu'aucune n'écrive. C'est pourquoi **la base
-reste la source de vérité** : un index unique empêche réellement le doublon, et l'erreur de la
-base est traduite en une réponse propre (chapitre 4). La vérification préalable améliore
-l'expérience ; la contrainte de la base garantit la cohérence.
+Prenons le cas d'une **double insertion** : on enregistre un produit dont le nom doit être unique.
+Un validateur peut vérifier « ce nom n'existe pas déjà » en interrogeant la base. Cette
+vérification donne une réponse rapide et claire à l'utilisateur.
+
+Mais imaginons que deux requêtes **simultanées** créent le même produit (un double-clic, un
+client qui renvoie sa requête après un délai d'attente, deux utilisateurs en même temps) :
+
+| Instant | Requête A | Requête B |
+|---|---|---|
+| t1 | Le validateur demande : « ce nom existe-t-il ? » → non | |
+| t2 | | Le validateur demande : « ce nom existe-t-il ? » → non |
+| t3 | Écrit le produit : succès | |
+| t4 | | Écrit le produit : **doublon** |
+
+Aucune des deux vérifications ne s'est trompée au moment où elle a été faite : c'est l'écart
+entre la vérification et l'écriture qui crée le problème. Un validateur seul ne peut donc pas
+garantir l'unicité.
+
+C'est pourquoi **la base reste la source de vérité** : un **index unique** sur la colonne empêche
+réellement le doublon, et la requête B est rejetée par la base. L'erreur technique est alors
+traduite en une réponse propre par l'adaptateur de persistance (chapitre 4), ici un conflit
+(409), et non une erreur 500. La vérification préalable améliore l'expérience (message clair,
+dans la majorité des cas) ; la contrainte de la base garantit la cohérence (dans tous les cas).
 
 ### 3.7 Avantages et limites
 
@@ -700,6 +747,19 @@ Spring Modulith est une bibliothèque de l'écosystème Spring qui apporte à ce
 manque à Spring seul : un **enregistrement en base** pour ne pas perdre un événement, une
 annotation d'écouteur adaptée aux échanges entre modules, et des outils d'analyse et de documentation.
 
+> **Ce que le projet utilise, et ce qu'il n'utilise pas.** Spring Modulith propose un
+> ensemble d'outils, dont l'**isolation complète des modules** : vérification automatique
+> qu'aucun module n'accède à l'intérieur d'un autre, tests par module, etc. **Ce projet
+> n'applique pas cette isolation complète.** Il montre uniquement l'**usage possible des
+> événements** (publication, écoute, enregistrement en base) et la génération de diagrammes.
+> Les modules restent pour l'instant autorisés à s'appeler par leurs cas d'utilisation, et le
+> contrôle automatique des frontières n'est pas activé (voir 5.10). Une équipe pourra aller plus loin
+> si elle le souhaite, mais ce n'est pas une obligation.
+>
+> **Persistance des événements.** Dans notre cas, les événements sont **enregistrés dans la base
+> de données** (PostgreSQL), dans la table `event_publication`, et non uniquement gardés en
+> mémoire. C'est ce qui garantit qu'un événement n'est pas perdu si l'application s'arrête (5.6).
+
 ### 5.2 Deux outils, deux usages
 
 | Outil | Usage | Portée |
@@ -726,16 +786,54 @@ Il en existe trois, un par changement d'état : `OrderConfirmedEvent`, `OrderCom
 et la date, pas l'entité `Order` complète. Ainsi, les autres modules ne dépendent pas du
 modèle interne de la commande, et l'événement reste léger à enregistrer.
 
-**Où le placer ?** Dans la structure cible, les événements d'un module vivent dans
-`application.event` (package exposé aux autres modules, voir 2.5). Dans le code actuel, ils sont
-à la racine du module `order`. Ce sont des faits métier du module `order` : c'est lui qui en est
-propriétaire. Comme le `record` n'importe rien de Spring, le domaine reste indépendant de la technologie.
+#### Pourquoi un `record` ?
+
+Le choix du `record` (disponible depuis Java 16, donc dans le Java 17 du projet) n'est pas une
+question de style : il correspond exactement à ce qu'est un événement.
+
+| Argument | Explication |
+|---|---|
+| **Immuable par construction** | Les champs d'un `record` sont `final` et il n'a pas de modificateur. Un événement est un fait passé : personne ne doit pouvoir le modifier après sa publication. Ce point est essentiel ici, car l'événement est lu par plusieurs écouteurs dans des threads différents (écoute asynchrone) et **enregistré puis rejoué** depuis la base. S'il pouvait changer entre-temps, deux écouteurs verraient deux faits différents. |
+| **Sûr entre threads** | Étant immuable, un `record` se partage sans verrou ni copie défensive entre l'émetteur et les écouteurs asynchrones. |
+| **Pas de code répétitif** | Constructeur, accesseurs, `equals`, `hashCode` et `toString` sont générés. Aucun Lombok, aucune bibliothèque : le domaine reste du Java pur (chapitre 2). |
+| **Égalité par valeur** | Deux événements de mêmes valeurs sont égaux. C'est précieux dans les tests (`assertThat(event).isEqualTo(new OrderConfirmedEvent(...))`) et pour détecter un doublon. |
+| **Contrat lisible** | La liste des champs est écrite dans l'en-tête de la déclaration : on voit d'un coup d'œil ce que l'événement transporte. Ajouter un champ est un acte visible dans une revue de code. |
+| **Facile à sérialiser** | Spring Modulith écrit l'événement au format JSON dans la table `event_publication`, puis le relit pour le rejouer. Jackson (la bibliothèque JSON de Spring) sait lire et écrire les `record` sans configuration. Une classe classique demanderait un constructeur vide et des modificateurs, donc un objet modifiable. |
+| **Validation à la création** | Un constructeur compact permet de refuser un événement incohérent (identifiant nul) dès sa construction. |
+| **Aucune logique cachée** | Un `record` est fait pour porter des données. Il décourage de mettre du comportement dans l'événement, qui doit rester un simple message. |
+
+> **À retenir pour l'évolution.** Parce que les événements sont conservés en base puis rejoués,
+> **renommer ou supprimer un champ** peut empêcher de relire un événement encore en attente.
+> Préférez *ajouter* un champ, et videz la file des publications incomplètes avant un changement
+> incompatible.
+
+#### Où les placer ?
+
+Dans la structure cible, les événements d'un module vivent dans **`domain.event`**. Ce sont des
+faits métier du module `order` : c'est lui qui en est propriétaire. Comme le `record` n'importe
+rien de Spring, le domaine reste en Java pur.
+
+**Ils ne sont pas à la racine du module.** Comme la racine d'un module est vide (2.5), les
+autres modules ne verraient pas les événements par défaut. Pour que `notification` puisse écouter
+`OrderConfirmedEvent`, le package `domain.event` doit être **déclaré public** auprès de Spring
+Modulith avec `@org.springframework.modulith.NamedInterface`, dans un fichier `package-info.java` :
+
+```java
+// order/domain/event/package-info.java
+@org.springframework.modulith.NamedInterface("event")
+package com.example.ordermanagement.order.domain.event;
+```
+
+Sans cette annotation, Modulith considère le package comme interne et signale que
+`notification` accède à l'intérieur d'`order`. Avec elle, le lien « `notification` écoute `order` »
+apparaît correctement dans les diagrammes (5.9). Dans le code actuel, les événements sont encore à
+la racine du module `order` (voir 2.10).
 
 **Pourquoi pas ailleurs ?**
 
 | Emplacement | Verdict | Raison |
 |---|---|---|
-| Dans le module émetteur, package exposé | **Retenu** | Propriété claire, domaine sans Spring, liens « écoute » lisibles dans les diagrammes |
+| Dans le module émetteur, package exposé par `@NamedInterface` | **Retenu** | Propriété claire, domaine sans Spring, liens « écoute » lisibles dans les diagrammes |
 | Dans l'adaptateur | Écarté | Les autres modules devraient dépendre de l'intérieur d'`order`, ce que Modulith interdit |
 | Dans un module commun (`shared`) | Écarté | On perd la notion de propriétaire, et `shared` devient un fourre-tout |
 | Émis par l'entité (`@DomainEvents` de Spring Data) | Écarté | L'entité dépendrait de Spring Data, ce que le projet veut éviter |
@@ -760,7 +858,7 @@ aux événements : le service de commande ne sait pas **comment** l'événement 
 
 Ce port est volontairement distinct de `OrderEventPort`, qui publie vers IBM MQ pour les autres applications.
 
-### 5.5 Écouter : `@ApplicationModuleListener`
+### 5.5 Écouter : `@ApplicationModuleListener` et la table `event_publication`
 
 Un écouteur est une méthode annotée, qui reçoit l'événement :
 
@@ -782,6 +880,48 @@ Cette annotation combine trois comportements :
 La contrepartie est que la réaction est **décalée dans le temps** : l'e-mail part quelques
 instants après la confirmation. On parle de **cohérence à terme**.
 
+#### Ce que fait Spring Modulith par défaut : la table `event_publication`
+
+Dès que le projet contient la dépendance `spring-modulith-starter-jpa`, Spring Modulith enregistre,
+**sans aucun code supplémentaire**, chaque événement publié dans une table de la base, `event_publication`.
+Voici le mécanisme par défaut, étape par étape :
+
+1. **Au moment de la publication**, dans la transaction de l'émetteur, Modulith repère tous les
+   écouteurs `@ApplicationModuleListener` qui s'intéressent à ce type d'événement et écrit **une ligne par écouteur** dans `event_publication`.
+2. **Après la validation** de la transaction de l'émetteur, chaque écouteur est lancé dans son
+   propre thread et sa propre transaction.
+3. **Si l'écouteur se termine sans erreur**, sa ligne est marquée comme **terminée** (la date de complétion est renseignée).
+4. **S'il échoue** (exception) ou si l'application s'arrête avant la fin, la ligne reste
+   **incomplète** (date de complétion vide). L'événement n'est pas perdu : il est toujours en base et pourra être redistribué (5.6).
+
+Les colonnes de la table (version 2.1.1 de Spring Modulith ; le script du projet est
+`V4__create_event_publication_table.sql`, dans `adapter-events`) :
+
+| Colonne | Contenu |
+|---|---|
+| `id` | Identifiant unique de la publication |
+| `listener_id` | L'écouteur concerné (classe et méthode) : **une ligne par couple événement + écouteur** |
+| `event_type` | Le type Java de l'événement (par exemple `OrderConfirmedEvent`) |
+| `serialized_event` | L'événement en JSON, pour pouvoir le reconstruire et le rejouer |
+| `publication_date` | Quand l'événement a été publié |
+| `completion_date` | Quand l'écouteur a réussi ; **vide tant que le traitement n'est pas terminé** |
+| `status`, `completion_attempts`, `last_resubmission_date` | État de la publication, nombre de tentatives et date de la dernière relance (colonnes ajoutées par les versions récentes) |
+
+Un exemple concret : la confirmation d'une commande concerne deux écouteurs (audit et e-mail). La
+table reçoit donc **deux lignes** pour un seul événement :
+
+| listener_id | event_type | publication_date | completion_date |
+|---|---|---|---|
+| …`OrderStatusAuditListener.on` | `OrderConfirmedEvent` | 10:00:00 | 10:00:00 |
+| …`CustomerNotificationListener.on` | `OrderConfirmedEvent` | 10:00:00 | *(vide)* |
+
+Ici, l'audit a réussi, mais l'e-mail est encore en attente ou a échoué. Les deux écouteurs sont
+suivis **séparément** : l'échec de l'un ne bloque pas l'autre.
+
+> **Deux comportements par défaut à connaître.**
+> - Par défaut, une ligne **terminée reste dans la table**. Avec le temps, la table grossit : il faut prévoir de l'archiver ou de la purger (Spring Modulith propose pour cela des réglages de nettoyage des publications terminées).
+> - Une publication **incomplète n'est pas relancée toute seule pendant que l'application tourne**. Elle l'est au redémarrage si l'option `republish-outstanding-events-on-restart` est activée (5.6), ou à la demande avec l'API de relance de Spring Modulith (`IncompleteEventPublications`).
+
 Le projet a deux écouteurs, dans le module `notification` :
 
 | Écouteur | Rôle |
@@ -796,9 +936,9 @@ ni l'événement ni le code qui publie ne changent. Chaque écouteur est suivi s
 ### 5.6 Durabilité : ne jamais perdre un événement
 
 Sans précaution, un événement publié uniquement en mémoire serait perdu si l'application
-s'arrêtait avant son traitement. Spring Modulith l'**enregistre donc en base**, dans la table
-`event_publication` (une ligne par écouteur concerné), **dans la même transaction** que le
-changement de statut. Le statut et l'événement sont ainsi enregistrés ensemble, ou pas du tout.
+s'arrêtait avant son traitement. Grâce à la table `event_publication` (5.5), l'événement est
+écrit **dans la même transaction** que le changement de statut : le statut et l'événement sont
+enregistrés ensemble, ou pas du tout.
 
 ```mermaid
 sequenceDiagram
@@ -815,10 +955,12 @@ sequenceDiagram
 
 Le cycle de vie d'une publication :
 
-1. **Publication** : la ligne est écrite avec le changement de statut.
-2. **Exécution** : après validation de la transaction, l'écouteur est lancé.
-3. **Complétion** : s'il se termine sans erreur, la date de complétion est renseignée.
-4. **Reprise** : en cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué.
+| Étape | Ce qui se passe | État de la ligne |
+|---|---|---|
+| 1. Publication | La ligne est écrite avec le changement de statut | `completion_date` vide |
+| 2. Exécution | Après validation de la transaction, l'écouteur est lancé | `completion_date` vide |
+| 3. Complétion | L'écouteur se termine sans erreur | `completion_date` renseignée |
+| 4. Reprise | En cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué | `completion_date` vide |
 
 Réglage utilisé (`application.yml` de `adapter-in-web`) :
 
@@ -830,14 +972,24 @@ spring:
 ```
 
 Avec ce réglage, si l'application s'arrête après la validation mais avant le passage de
-l'écouteur, l'événement est redistribué au prochain démarrage.
+l'écouteur, l'événement est redistribué au prochain démarrage : Spring Modulith relit les lignes
+incomplètes, reconstruit l'événement depuis `serialized_event` et rappelle l'écouteur concerné.
+
+Pour **voir** l'état des publications, une simple requête suffit :
+
+```sql
+-- Événements en attente ou en échec
+SELECT listener_id, event_type, publication_date
+FROM event_publication
+WHERE completion_date IS NULL;
+```
 
 ### 5.7 Attention : livraison « au moins une fois »
 
-Modulith garantit qu'un événement sera livré **au moins une fois**, pas **exactement une fois**.
-Il peut donc arriver deux fois (relance au redémarrage, ou échec de l'enregistrement de la
-complétion alors que l'écouteur avait réussi). Un écouteur doit être **idempotent** : le
-rejouer ne doit pas produire un second effet.
+La relance décrite en 5.6 a une conséquence importante. Modulith garantit qu'un événement sera
+livré **au moins une fois**, pas **exactement une fois**. Il peut donc arriver deux fois (relance
+au redémarrage, ou échec de l'enregistrement de la complétion alors que l'écouteur avait réussi).
+Un écouteur doit être **idempotent** : le rejouer ne doit pas produire un second effet.
 
 | Écouteur | Rejouable sans risque ? |
 |---|---|
@@ -896,10 +1048,10 @@ Liens actuellement détectés (sur le code actuel) :
 | Point | État |
 |---|---|
 | Packages réorganisés par module métier | Fait (organisation intermédiaire, voir 2.10) |
-| Structure cible (`application` / `adapter`, racine vide) | **À faire**, après validation par un prototype (2.5) |
+| Structure cible (`application` / `domain` / `adapter`, racine vide) | **À faire**, après validation par un prototype (2.5) |
 | Documentation et diagrammes générés | Fait |
 | `CreateOrderValidator`, `OrderDomainService` et `CustomerNotificationListener` utilisent encore les ports internes de `customer` et `product` | **À faire** : passer par `GetCustomerUseCase` et `GetProductUseCase` |
-| `ApplicationModules.verify()` (contrôle automatique des frontières) | Non activé : il signalerait ces accès |
+| `ApplicationModules.verify()` (contrôle automatique des frontières) | Non activé : il signalerait ces accès (isolation complète volontairement non appliquée, voir 5.1) |
 | Tests d'intégration sur la nouvelle structure | Non relancés (PostgreSQL et IBM MQ requis) |
 | Table `event_publication` : script reconstitué à la main | À comparer à la documentation officielle de la version 2.1.1 |
 
@@ -913,7 +1065,7 @@ Liens actuellement détectés (sur le code actuel) :
 | **Agrégat** | Objet métier qui protège ses propres règles (`Order`, `Customer`, `Product`) |
 | **Cas d'utilisation (use case)** | Une action métier offerte par le module (`CreateOrderUseCase`) |
 | **Cohérence à terme** | Un état secondaire (e-mail, audit) est mis à jour un peu plus tard, pas dans la même transaction |
-| **Domaine** | Cœur métier, sans dépendance technique |
+| **Domaine** | Cœur métier en Java pur (package `domain` : modèle, événements, exceptions), sans aucune dépendance technique |
 | **DTO** | Objet de transfert propre à l'API (requête, réponse), distinct de l'objet métier |
 | **Événement** | Fait passé (« la commande a été confirmée ») publié pour que d'autres réagissent |
 | **Idempotent** | Qui peut être exécuté plusieurs fois avec le même résultat que s'il l'était une seule fois |
