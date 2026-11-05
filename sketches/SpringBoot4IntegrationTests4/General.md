@@ -276,8 +276,11 @@ immédiatement son emplacement.
 
 **Conséquence avec Spring Modulith.** Par défaut, Spring Modulith considère que ce qui est
 à la racine d'un module est son **API publique** et que tout sous-package est **interne**
-(inaccessible aux autres modules). Avec une racine vide, **rien ne serait donc visible**
-de l'extérieur, et le module `customer` ne pourrait plus utiliser le moindre cas d'utilisation de `order`.
+(les autres modules n'ont pas le droit de l'utiliser). Il s'agit d'une règle de **conception,
+vérifiée par l'outil** (`ApplicationModules.verify()`, voir 5.1) : à l'exécution, Java ne l'empêche
+pas, puisque ce ne sont que des packages. Avec une racine vide, **aucune classe ne serait donc
+reconnue comme publique** : la vérification signalerait chaque usage du module `order` par le
+module `customer`.
 
 La solution consiste à **déclarer explicitement** les packages qui forment l'API publique, avec
 l'annotation `@NamedInterface` placée dans un fichier `package-info.java` :
@@ -818,10 +821,11 @@ Dans la structure cible, les événements d'un module vivent dans **`domain.even
 faits métier du module `order` : c'est lui qui en est propriétaire. Comme le `record` n'importe
 rien de Spring, le domaine reste en Java pur.
 
-**Ils ne sont pas à la racine du module.** Comme la racine d'un module est vide (2.5), les
-autres modules ne verraient pas les événements par défaut. Pour que `notification` puisse écouter
-`OrderConfirmedEvent`, le package `domain.event` doit être **déclaré public** auprès de Spring
-Modulith avec `@org.springframework.modulith.NamedInterface`, dans un fichier `package-info.java` :
+**Ils ne sont pas à la racine du module.** Comme la racine d'un module est vide (2.5), Spring
+Modulith considère `domain.event` comme un package **interne**. Pour que `notification` puisse
+écouter `OrderConfirmedEvent` **sans que la vérification des frontières signale une violation**,
+le package doit être déclaré comme faisant partie de l'API publique du module, avec
+`@org.springframework.modulith.NamedInterface`, dans un fichier `package-info.java` :
 
 ```java
 // order/domain/event/package-info.java
@@ -829,10 +833,15 @@ Modulith avec `@org.springframework.modulith.NamedInterface`, dans un fichier `p
 package com.example.ordermanagement.order.domain.event;
 ```
 
-Sans cette annotation, Modulith considère le package comme interne et signale que
-`notification` accède à l'intérieur d'`order`. Avec elle, le lien « `notification` écoute `order` »
-apparaît correctement dans les diagrammes (5.9). Dans le code actuel, les événements sont encore à
-la racine du module `order` (voir 2.10).
+> **Précision importante.** Cette annotation n'est **pas nécessaire au fonctionnement** : si la
+> classe est `public`, l'événement est publié, enregistré et livré à l'écouteur de la même façon,
+> avec ou sans elle. Elle sert à la **vérification** (`ApplicationModules.verify()`) : sans elle,
+> `verify()` signalerait que `notification` accède à l'intérieur d'`order`, car le type de
+> l'événement apparaît dans la signature de l'écouteur. Comme ce projet n'active pas `verify()`
+> (5.1 et 5.10), l'annotation relève ici de la bonne pratique pour la cible. Son effet exact sur
+> les diagrammes générés reste à confirmer par le prototype signalé en 2.5.
+
+Dans le code actuel, les événements sont encore à la racine du module `order` (voir 2.10).
 
 **Pourquoi pas ailleurs ?**
 
