@@ -883,13 +883,18 @@ void on(OrderConfirmedEvent event) {
 }
 ```
 
-Cette annotation combine trois comportements :
+Cette annotation est un raccourci qui combine trois comportements :
 
-| Comportement | Effet concret |
-|---|---|
-| **Asynchrone** | L'écouteur s'exécute dans un autre thread : celui qui publie n'attend pas la fin du traitement |
-| **Propre transaction** | L'écouteur a sa transaction, indépendante de celle de l'émetteur : une erreur ici n'annule pas la commande |
-| **Après validation** | L'écouteur ne démarre qu'une fois la transaction de l'émetteur validée : il ne réagit jamais à une action finalement annulée |
+| Comportement | Annotation Spring sous-jacente | Effet concret |
+|---|---|---|
+| **Asynchrone** | `@Async` | L'écouteur s'exécute dans un autre thread : celui qui publie n'attend pas la fin du traitement |
+| **Propre transaction** | `@Transactional(propagation = REQUIRES_NEW)` | L'écouteur a sa propre transaction, indépendante de celle de l'émetteur : une erreur ici n'annule pas la commande |
+| **Après validation** | `@TransactionalEventListener` (phase `AFTER_COMMIT`) | L'écouteur ne démarre qu'une fois la transaction de l'émetteur validée : il ne réagit jamais à une action finalement annulée |
+
+Deux précisions importantes :
+
+- **La publication doit avoir lieu dans une transaction.** Comme l'écouteur attend la validation d'une transaction, un événement publié *hors* de toute transaction n'est pas délivré. Dans le projet, le service de commande est transactionnel, donc la condition est remplie.
+- **Une erreur dans l'écouteur n'annule pas l'émetteur**, mais elle n'est pas pour autant ignorée : l'événement reste en base, marqué en échec, et pourra être rejoué (voir ci-dessous).
 
 La contrepartie est que la réaction est **décalée dans le temps** : l'e-mail part quelques
 instants après la confirmation. On parle de **cohérence à terme**.
@@ -901,40 +906,41 @@ Dès que le projet contient la dépendance `spring-modulith-starter-jpa`, Spring
 Voici le mécanisme par défaut, étape par étape :
 
 1. **Au moment de la publication**, dans la transaction de l'émetteur, Modulith repère tous les
-   écouteurs `@ApplicationModuleListener` qui s'intéressent à ce type d'événement et écrit **une ligne par écouteur** dans `event_publication`.
+   écouteurs `@ApplicationModuleListener` qui s'intéressent à ce type d'événement et écrit **une ligne par écouteur** dans `event_publication`, avec le statut `PUBLISHED`.
 2. **Après la validation** de la transaction de l'émetteur, chaque écouteur est lancé dans son
-   propre thread et sa propre transaction.
-3. **Si l'écouteur se termine sans erreur**, sa ligne est marquée comme **terminée** (la date de complétion est renseignée).
-4. **S'il échoue** (exception) ou si l'application s'arrête avant la fin, la ligne reste
-   **incomplète** (date de complétion vide). L'événement n'est pas perdu : il est toujours en base et pourra être redistribué (5.6).
+   propre thread et sa propre transaction (statut `PROCESSING`).
+3. **Si l'écouteur se termine sans erreur**, sa ligne passe au statut `COMPLETED` et la date de complétion est renseignée.
+4. **S'il échoue** (exception), la ligne passe au statut `FAILED` et la date de complétion reste vide. Si l'application s'arrête avant la fin, la ligne reste elle aussi incomplète. Dans les deux cas, l'événement n'est pas perdu : il est toujours en base et pourra être redistribué (5.6).
 
-Les colonnes de la table (version 2.1.1 de Spring Modulith ; le script du projet est
+Les colonnes de la table (vérifiées dans Spring Modulith 2.1.1 ; le script du projet est
 `V4__create_event_publication_table.sql`, dans `adapter-events`) :
 
 | Colonne | Contenu |
 |---|---|
-| `id` | Identifiant unique de la publication |
+| `id` | Identifiant unique de la publication (UUID) |
 | `listener_id` | L'écouteur concerné (classe et méthode) : **une ligne par couple événement + écouteur** |
-| `event_type` | Le type Java de l'événement (par exemple `OrderConfirmedEvent`) |
+| `event_type` | Le nom complet de la classe Java de l'événement (par exemple `com.example.…OrderConfirmedEvent`) |
 | `serialized_event` | L'événement en JSON, pour pouvoir le reconstruire et le rejouer |
 | `publication_date` | Quand l'événement a été publié |
 | `completion_date` | Quand l'écouteur a réussi ; **vide tant que le traitement n'est pas terminé** |
-| `status`, `completion_attempts`, `last_resubmission_date` | État de la publication, nombre de tentatives et date de la dernière relance (colonnes ajoutées par les versions récentes) |
+| `status` | État de la publication : `PUBLISHED`, `PROCESSING`, `COMPLETED`, `FAILED` ou `RESUBMITTED` (texte) |
+| `completion_attempts` | Nombre de tentatives d'exécution |
+| `last_resubmission_date` | Date de la dernière relance |
 
 Un exemple concret : la confirmation d'une commande concerne deux écouteurs (audit et e-mail). La
 table reçoit donc **deux lignes** pour un seul événement :
 
-| listener_id | event_type | publication_date | completion_date |
-|---|---|---|---|
-| …`OrderStatusAuditListener.on` | `OrderConfirmedEvent` | 10:00:00 | 10:00:00 |
-| …`CustomerNotificationListener.on` | `OrderConfirmedEvent` | 10:00:00 | *(vide)* |
+| listener_id | event_type | status | publication_date | completion_date |
+|---|---|---|---|---|
+| …`OrderStatusAuditListener.on` | `…OrderConfirmedEvent` | `COMPLETED` | 10:00:00 | 10:00:01 |
+| …`CustomerNotificationListener.on` | `…OrderConfirmedEvent` | `FAILED` | 10:00:00 | *(vide)* |
 
-Ici, l'audit a réussi, mais l'e-mail est encore en attente ou a échoué. Les deux écouteurs sont
-suivis **séparément** : l'échec de l'un ne bloque pas l'autre.
+Ici, l'audit a réussi, mais l'e-mail a échoué. Les deux écouteurs sont suivis **séparément** :
+l'échec de l'un ne bloque pas l'autre.
 
-> **Deux comportements par défaut à connaître.**
-> - Par défaut, une ligne **terminée reste dans la table**. Avec le temps, la table grossit : il faut prévoir de l'archiver ou de la purger (Spring Modulith propose pour cela des réglages de nettoyage des publications terminées).
-> - Une publication **incomplète n'est pas relancée toute seule pendant que l'application tourne**. Elle l'est au redémarrage si l'option `republish-outstanding-events-on-restart` est activée (5.6), ou à la demande avec l'API de relance de Spring Modulith (`IncompleteEventPublications`).
+> **Comportements par défaut à connaître** (vérifiés dans Spring Modulith 2.1.1).
+> - **Les lignes terminées restent dans la table.** Le mode par défaut, `spring.modulith.events.completion-mode=update`, se contente de renseigner la date de complétion. Avec le temps, la table grossit. Deux autres modes existent : `delete` (la ligne est supprimée à la complétion) et `archive` (la ligne est déplacée vers une table `event_publication_archive`, à créer par script Flyway comme la première).
+> - **Une publication incomplète n'est pas relancée toute seule pendant que l'application tourne.** Elle l'est au redémarrage si `spring.modulith.events.republish-outstanding-events-on-restart` est à `true` (5.6, réglage du projet), ou à la demande avec l'interface `IncompleteEventPublications` (`resubmitIncompletePublications…`). Des délais de « péremption » (`spring.modulith.events.staleness.*`) existent aussi, mais ne sont pas définis par défaut.
 
 Le projet a deux écouteurs, dans le module `notification` :
 
@@ -971,10 +977,10 @@ Le cycle de vie d'une publication :
 
 | Étape | Ce qui se passe | État de la ligne |
 |---|---|---|
-| 1. Publication | La ligne est écrite avec le changement de statut | `completion_date` vide |
-| 2. Exécution | Après validation de la transaction, l'écouteur est lancé | `completion_date` vide |
-| 3. Complétion | L'écouteur se termine sans erreur | `completion_date` renseignée |
-| 4. Reprise | En cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué | `completion_date` vide |
+| 1. Publication | La ligne est écrite avec le changement de statut | `PUBLISHED`, `completion_date` vide |
+| 2. Exécution | Après validation de la transaction, l'écouteur est lancé | `PROCESSING`, `completion_date` vide |
+| 3. Complétion | L'écouteur se termine sans erreur | `COMPLETED`, `completion_date` renseignée |
+| 4. Échec puis reprise | En cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué | `FAILED` (ou `PROCESSING` si l'arrêt a interrompu le traitement), puis `RESUBMITTED` à la relance |
 
 Réglage utilisé (`application.yml` de `adapter-in-web`) :
 
