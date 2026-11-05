@@ -1,15 +1,16 @@
-# Order Management : choix d'architecture du backend
+# Architecture backend : choix et pratiques à suivre
 
 > **Public visé** : toutes les équipes de développement, quel que soit leur niveau en Java.
 > Chaque section commence par l'idée générale, expliquée simplement et avec un exemple, puis
-> détaille la mise en œuvre dans le projet. Un débutant peut lire les introductions et les
+> détaille la mise en œuvre. Un débutant peut lire les introductions et les
 > tableaux ; un développeur expérimenté trouvera le détail technique dans le reste de chaque section.
 >
 > **Périmètre** : le backend uniquement (le frontend n'est pas couvert).
 >
 > **Convention de lecture** : les éléments marqués **« cible »** décrivent l'organisation que
-> les équipes doivent adopter ; ils ne reflètent pas encore tout le code existant. Les éléments
-> marqués **« actuel »** décrivent le code tel qu'il est aujourd'hui. Le chapitre 2 explique l'écart.
+> les équipes doivent adopter ; ils ne reflètent pas encore tout le code de l'application
+> d'illustration. Les éléments marqués **« actuel »** décrivent ce code tel qu'il est aujourd'hui.
+> Le chapitre 2 explique l'écart.
 
 ## Sommaire
 
@@ -25,32 +26,24 @@
 
 ## 1. Introduction
 
-### 1.1 Le projet en quelques mots
+### 1.1 Objet de ce document
 
-Order Management est une application Java (Spring Boot) qui gère des **commandes**, des
-**clients** et des **produits**. Elle expose une API REST, enregistre ses données dans une base
-PostgreSQL, échange des messages avec d'autres applications par IBM MQ et exécute un traitement
-planifié (Spring Batch) qui fait passer les commandes confirmées à l'état « complétée ».
+Ce document décrit **l'architecture que les équipes backend doivent suivre** et les règles qui
+l'accompagnent : comment organiser les packages, où placer chaque type de classe, où vérifier
+les règles métier, comment répondre aux erreurs et comment faire réagir les parties de
+l'application les unes aux autres. L'objectif est qu'une personne qui change d'équipe ou de
+projet **retrouve les mêmes repères** : mêmes noms de packages, mêmes responsabilités, mêmes
+règles de dépendance.
 
-**Ce projet n'a pas pour but d'être une gestion de commandes complète et fonctionnelle.** Les
-commandes, clients et produits ne sont qu'un **prétexte** : un sujet assez simple pour que tout
-le monde le comprenne, et assez riche pour illustrer des situations réelles (validation, erreurs,
-messages, événements, traitements planifiés). L'objectif est d'**expliquer et de montrer, sur un
-exemple concret, les aspects liés à l'architecture hexagonale, et au-delà, les pratiques que les
-équipes projet doivent suivre**.
+Il est le **résultat d'échanges avec plusieurs équipes**. Il n'est pas figé : il **peut et doit
+évoluer dans le temps**, en fonction des retours de toutes les personnes concernées : les équipes
+projet, les architectes et les équipes CI/CD (intégration et déploiement continus). Toute
+remarque ou difficulté rencontrée en appliquant ces choix est une contribution utile. Il sert
+enfin de **référence pour les futurs projets de l'entreprise**.
 
-Ce document est le **résultat d'échanges avec plusieurs équipes**. Il n'est pas figé : le
-document comme le projet **peuvent et doivent évoluer dans le temps**, en fonction des retours de
-toutes les personnes concernées : les équipes projet, les architectes et les équipes CI/CD
-(intégration et déploiement continus). Toute remarque ou difficulté rencontrée en appliquant ces
-choix est une contribution utile. Il sert aussi de **référence pour les futurs projets de
-l'entreprise**, qui pourront reprendre la même organisation pour que chacun s'y retrouve d'un
-projet à l'autre.
-
-Ce document ne décrit donc pas toutes les fonctionnalités de l'application. Il explique **quatre
-décisions d'organisation du code**, parce que ce sont elles qui déterminent la façon dont chaque
-équipe écrit, range et fait évoluer son code. Comprendre ces décisions évite d'écrire du code qui
-fonctionne mais qui ne respecte pas l'esprit du projet.
+Pour que ces règles soient concrètes et vérifiables, elles sont appliquées dans une
+**application d'illustration** (présentée en 1.4). Elle est au second plan : on s'y réfère pour
+montrer un exemple de code, mais ce sont **les règles d'architecture** qui sont l'objet du document.
 
 ### 1.2 Les quatre décisions
 
@@ -58,7 +51,7 @@ Chaque décision répond à une question simple que toute équipe se pose un jou
 
 | Question | Choix retenu | Section |
 |---|---|---|
-| Où ranger le code ? | Un package par **sujet métier** (commande, client, produit), avec la même organisation interne dans chacun | [2](#2-structure-des-packages) |
+| Où ranger le code ? | Un package par **sujet métier**, avec la même organisation interne dans chacun : `application`, `domain`, `adapter` | [2](#2-structure-des-packages) |
 | Où vérifier les règles métier ? | Dans le **domaine**, en rassemblant toutes les erreurs d'une requête avant de répondre | [3](#3-validation-dans-le-domaine) |
 | Comment répondre quand quelque chose échoue ? | Un **format de réponse unique**, produit à un seul endroit du code | [4](#4-gestion-des-erreurs-avec-restcontrolleradvice) |
 | Comment faire réagir une partie de l'application à ce qui se passe dans une autre ? | Des **événements** Spring Modulith, enregistrés en base pour ne jamais être perdus | [5](#5-spring-modulith) |
@@ -66,15 +59,16 @@ Chaque décision répond à une question simple que toute équipe se pose un jou
 Ces quatre décisions sont liées : la structure des packages (2) détermine où vivent les règles
 de validation (3) ; les erreurs qu'elles produisent sont traduites en réponses HTTP (4) ; et les
 événements (5) permettent aux sujets métier de réagir les uns aux autres sans se connaître.
+Comprendre ces décisions évite d'écrire du code qui fonctionne mais qui ne respecte pas
+l'esprit de l'architecture.
 
 ### 1.3 Le fil conducteur : l'architecture hexagonale
 
-Tout le projet repose sur une règle unique : **le cœur métier ne dépend d'aucune technologie**.
+Toute l'architecture repose sur une règle unique : **le cœur métier ne dépend d'aucune technologie**.
 
-Imaginez l'application comme un hexagone. Au centre, le **domaine** contient les règles métier
-(« une commande doit avoir au moins une ligne », « on ne confirme pas deux fois la même
-commande »). Autour, des **adaptateurs** relient ce cœur au monde extérieur : l'API REST, la
-base de données, IBM MQ, le traitement planifié.
+Imaginez une application comme un hexagone. Au centre, le **domaine** contient les règles métier
+(par exemple « une commande doit avoir au moins une ligne »). Autour, des **adaptateurs** relient
+ce cœur au monde extérieur : l'API REST, la base de données, la messagerie, les traitements planifiés.
 
 ```mermaid
 flowchart LR
@@ -88,7 +82,7 @@ flowchart LR
 
 Trois mots à retenir :
 
-- Le **domaine** contient les règles métier. Il est écrit en Java ordinaire : il ne connaît ni la base de données, ni HTTP, ni IBM MQ.
+- Le **domaine** contient les règles métier. Il est écrit en Java pur : il ne connaît ni la base de données, ni HTTP, ni la messagerie.
 - Un **port** est une interface Java qui décrit *ce dont on a besoin* (« enregistrer une commande ») ou *ce que l'on offre* (« créer une commande »), sans dire comment.
 - Un **adaptateur** est la classe qui réalise ou appelle un port avec une technologie précise (« enregistrer avec JPA », « exposer en REST »).
 
@@ -99,10 +93,21 @@ domaine ; le domaine ne connaît jamais un adaptateur.
 > sans démarrer Spring ni de base de données, et changer une technologie (par exemple la base
 > de données) en ne touchant qu'un adaptateur.
 
-Dans ce projet, les ports d'entrée retournent directement les objets du domaine (style
-« pragmatique ») ; c'est le contrôleur qui les convertit en objets de réponse (DTO).
+Le style retenu est dit **« pragmatique »** : les ports d'entrée retournent directement les objets
+du domaine, et c'est l'adaptateur (le contrôleur) qui les convertit en objets de réponse (DTO).
 
-### 1.4 Comment lire la suite
+### 1.4 L'application d'illustration
+
+Les règles sont démontrées sur **Order Management**, une application Java (Spring Boot) qui gère
+des commandes, des clients et des produits : API REST, base PostgreSQL, messages IBM MQ et
+traitement planifié (Spring Batch). **Ce n'est pas une application de gestion de commandes
+complète et fonctionnelle** : ce sujet n'est qu'un prétexte, assez simple pour que tout le monde
+le comprenne et assez riche pour exposer des situations réelles (validation, erreurs,
+messages, événements, traitements planifiés). Les noms de classes cités dans ce document
+(`OrderController`, `CreateOrderValidator`…) viennent de cette application ; remplacez-les mentalement
+par ceux de votre propre sujet métier.
+
+### 1.5 Comment lire la suite
 
 | Vous voulez… | Lisez |
 |---|---|
