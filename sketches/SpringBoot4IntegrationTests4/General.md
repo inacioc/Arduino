@@ -15,7 +15,7 @@
 ## Sommaire
 
 1. [Introduction](#1-introduction)
-2. [Structure des packages](#2-structure-des-packages)
+2. [Structure des packages et modules Maven](#2-structure-des-packages)
 3. [Validation dans le domaine](#3-validation-dans-le-domaine)
 4. [Gestion des erreurs avec `@RestControllerAdvice`](#4-gestion-des-erreurs-avec-restcontrolleradvice)
 5. [Spring Modulith](#5-spring-modulith)
@@ -426,6 +426,72 @@ tableau montre où chaque élément doit aller dans la structure cible.
 > **Maven.** Les modules Maven existants (`domain`, `adapter-out-persistence`,
 > `adapter-in-web`, …) sont conservés. Les packages d'un même module Modulith peuvent donc être
 > répartis sur plusieurs fichiers jar. Cela limite le risque de la migration.
+
+### 2.11 Les modules Maven
+
+Il ne faut pas confondre deux notions qui portent un nom proche :
+
+| | Module **Spring Modulith** | Module **Maven** |
+|---|---|---|
+| Ce que c'est | Un sujet métier (`order`, `customer`…) : un package | Un projet de compilation qui produit un fichier jar |
+| Découpage selon | Le **métier** | La **technologie** (persistance, messagerie, web…) |
+| Où c'est décrit | Chapitre 2.2 à 2.10 | Cette section |
+
+Les deux découpages sont **croisés** : un module métier (`order`) a ses classes réparties sur
+plusieurs modules Maven (ses entités JPA dans `adapter-out-persistence`, son contrôleur dans
+`adapter-in-web`, etc.). Tous partagent le même package racine `com.example.ordermanagement`.
+
+#### Les modules du projet (actuel)
+
+```
+order-management-parent                (pom parent : versions et configuration communes)
+├── domain                             application + domain de TOUS les modules métier
+├── adapter-out-persistence            JPA, Liquibase/Flyway, mappers MapStruct
+├── adapter-out-messaging              IBM MQ (JMS)
+├── adapter-out-batch                  traitement planifié (Spring Batch)
+├── adapter-events                     événements Spring Modulith (publication, écouteurs, table event_publication)
+├── adapter-in-web                     API REST, sécurité, gestion des erreurs : application exécutable
+└── frontend                           interface web (hors périmètre de ce document)
+```
+
+| Module Maven | Contient (packages cibles) | Dépend de | Exécutable ? |
+|---|---|---|---|
+| `domain` | `application.*` et `domain.*` des modules métier, plus `shared` | Aucun autre module du projet (voir remarque ci-dessous) | Non (bibliothèque) |
+| `adapter-out-persistence` | `adapter.database.out` | `domain` | Non (bibliothèque) |
+| `adapter-out-messaging` | `adapter.event.in` et `adapter.event.out` pour IBM MQ | `domain` | Non (bibliothèque) |
+| `adapter-out-batch` | `adapter.batch.in` | `domain`, `adapter-out-persistence` | Oui, applicatif séparé (`BatchApplication`) |
+| `adapter-events` | `adapter.event.out` (publication Modulith), écouteurs, script de la table `event_publication` | `domain` | Non (bibliothèque) |
+| `adapter-in-web` | `adapter.api.in`, `infrastructure` | `domain`, `adapter-out-persistence`, `adapter-out-messaging`, `adapter-events` | **Oui** : `WebApplication`, qui assemble toute l'application |
+| `frontend` | (hors périmètre) | — | Oui |
+
+```mermaid
+flowchart BT
+    P["adapter-out-persistence"] --> D["domain"]
+    M["adapter-out-messaging"] --> D
+    E["adapter-events"] --> D
+    B["adapter-out-batch"] --> P
+    B --> D
+    W["adapter-in-web<br/>(application exécutable)"] --> P
+    W --> M
+    W --> E
+    W --> D
+```
+
+#### Ce qu'il faut en retenir
+
+- **Le sens des flèches est celui de l'architecture hexagonale** : tous les adaptateurs dépendent de `domain` ; `domain` ne dépend d'aucun adaptateur. Maven **fait respecter** la règle d'or au moment de la compilation : si `domain` essayait d'importer une classe JPA, le build échouerait.
+- **`adapter-in-web` est le point d'assemblage** : c'est lui qui réunit les autres modules dans une seule application Spring Boot.
+- **Les adaptateurs ne se connaissent pas entre eux** (sauf `adapter-out-batch`, qui réutilise la persistance).
+- **Un nouveau type d'adaptateur = un nouveau module Maven** (par exemple un `adapter-out-rest` pour appeler une API externe), ajouté dans le pom parent et dans les dépendances de `adapter-in-web`.
+
+> **Remarque : `domain` Maven et package `domain`.** Le module Maven `domain` regroupe aujourd'hui
+> **deux** couches de la structure cible : `application` (services, validateurs, ports) et `domain`
+> (modèle, événements, exceptions). Ses dépendances à `spring-context` et `spring-tx` servent à la
+> couche `application` (annotations `@Service`, `@Transactional`). **Le package `domain` reste du
+> Java pur** même s'il est compilé dans ce module : la règle s'applique au package, pas au jar.
+> Séparer en deux modules Maven (`domain` pur, `application`) permettrait à Maven de faire respecter
+> cette règle aussi, au prix d'un module de plus. C'est une évolution possible, à discuter avec les équipes.
+
 
 ---
 
