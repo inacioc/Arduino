@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>order-management-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>order-bootstrap</artifactId>
+    <name>Order Management :: bootstrap</name>
+
+    <!-- The only executable module: it holds the main class, application.yml and the
+         end-to-end tests, and decides WHICH adapters get started by declaring them as
+         dependencies below. Adapters are plain libraries. To deploy a variant (e.g. without
+         the REST API), build a bootstrap that omits the corresponding adapter. -->
+    <dependencies>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-domain</artifactId>
+        </dependency>
+
+        <!-- Driving adapters -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-in-web</artifactId>
+        </dependency>
+
+        <!-- Driven adapters -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-out-persistence</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-out-messaging</artifactId>
+        </dependency>
+        <!-- In-process, durable module events (OrderStatusEventPort's adapter + its
+             @ApplicationModuleListeners) - never a substitute for the IBM MQ integration
+             events above, see OrderStatusEventPort's javadoc. Brings
+             spring-modulith-starter-jpa transitively. -->
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>order-adapter-events</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Documenter: generates the module diagrams (PlantUML) and module canvases (AsciiDoc)
+             into target/spring-modulith-docs, see ModulithDocumentationTest. -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-docs</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

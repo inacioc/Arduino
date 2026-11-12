@@ -26,14 +26,12 @@
         <spring-modulith.version>2.1.1</spring-modulith.version>
     </properties>
 
-    <!-- domain + persistence are libraries; each driving/runnable adapter is its
-         own executable Spring Boot application (web = REST server, batch = job
-         runner, messaging = JMS listener). adapter-events is a library too: Spring
-         Modulith's in-process module-event publisher/listeners, embedded into
-         whichever app(s) publish/react to order-status events (today, only
-         adapter-in-web - see that module's pom.xml). frontend is deliberately NOT
-         one of these hexagon adapters: it is a separate application that only ever
-         talks HTTP+JSON to adapter-in-web's REST API and depends on none of the
+    <!-- domain and the adapters (in-web, out-persistence, out-messaging, events) are libraries.
+         bootstrap is the executable module: it assembles the adapters it depends on into one
+         Spring Boot application (main class, application.yml, end-to-end tests). The batch
+         and messaging modules still ship their own standalone application class for now.
+         frontend is deliberately NOT one of these hexagon adapters: it is a separate
+         application that only ever talks HTTP+JSON to the REST API and depends on none of the
          modules above - see frontend/pom.xml. -->
     <modules>
         <module>domain</module>
@@ -42,6 +40,7 @@
         <module>adapter-out-batch</module>
         <module>adapter-events</module>
         <module>adapter-in-web</module>
+        <module>bootstrap</module>
         <module>frontend</module>
     </modules>
 
@@ -56,6 +55,11 @@
             <dependency>
                 <groupId>com.example</groupId>
                 <artifactId>order-adapter-in-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.example</groupId>
+                <artifactId>order-bootstrap</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

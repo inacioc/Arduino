@@ -17,7 +17,7 @@ import org.springframework.modulith.docs.Documenter;
  */
 class ModulithDocumentationTest {
 
-    private final ApplicationModules modules = ApplicationModules.of(WebApplication.class);
+    private final ApplicationModules modules = ApplicationModules.of(OrderManagementApplication.class);
 
     @Test
     void writeDocumentation() {
