@@ -441,48 +441,99 @@ Les deux découpages sont **croisés** : un module métier (`order`) a ses class
 plusieurs modules Maven (ses entités JPA dans `adapter-out-persistence`, son contrôleur dans
 `adapter-in-web`, etc.). Tous partagent le même package racine `com.example.ordermanagement`.
 
-#### Les modules du projet (actuel)
+#### Structure cible : un module de démarrage (`bootstrap`)
+
+Dans la structure **cible**, aucun adaptateur n'est exécutable. Un module Maven dédié,
+**`bootstrap`**, est le seul à contenir la classe `main` : il **choisit quels adaptateurs
+démarrer** en les déclarant comme dépendances. Les adaptateurs deviennent de simples
+bibliothèques, sans classe de démarrage.
 
 ```
 order-management-parent                (pom parent : versions et configuration communes)
 ├── domain                             application + domain de TOUS les modules métier
-├── adapter-out-persistence            JPA, Liquibase/Flyway, mappers MapStruct
-├── adapter-out-messaging              IBM MQ (JMS)
-├── adapter-out-batch                  traitement planifié (Spring Batch)
-├── adapter-events                     événements Spring Modulith (publication, écouteurs, table event_publication)
-├── adapter-in-web                     API REST, sécurité, gestion des erreurs : application exécutable
-└── frontend                           interface web (hors périmètre de ce document)
+├── adapter-in-web                     API REST (bibliothèque)
+├── adapter-in-mq                      réception de messages IBM MQ (bibliothèque, à créer si on sépare l'entrée MQ)
+├── adapter-in-batch                   traitement planifié (bibliothèque)
+├── adapter-out-persistence            JPA, mappers (bibliothèque)
+├── adapter-out-messaging              publication IBM MQ (bibliothèque)
+├── adapter-events                     événements Spring Modulith (bibliothèque)
+├── (autres adaptateurs si besoin)     par exemple un client REST vers une autre API
+└── bootstrap                          SEUL module exécutable : classe main, configuration, assemblage
 ```
-
-| Module Maven | Contient (packages cibles) | Dépend de | Exécutable ? |
-|---|---|---|---|
-| `domain` | `application.*` et `domain.*` des modules métier, plus `shared` | Aucun autre module du projet (voir remarque ci-dessous) | Non (bibliothèque) |
-| `adapter-out-persistence` | `adapter.database.out` | `domain` | Non (bibliothèque) |
-| `adapter-out-messaging` | `adapter.event.in` et `adapter.event.out` pour IBM MQ | `domain` | Non (bibliothèque) |
-| `adapter-out-batch` | `adapter.batch.in` | `domain`, `adapter-out-persistence` | Oui, applicatif séparé (`BatchApplication`) |
-| `adapter-events` | `adapter.event.out` (publication Modulith), écouteurs, script de la table `event_publication` | `domain` | Non (bibliothèque) |
-| `adapter-in-web` | `adapter.api.in`, `infrastructure` | `domain`, `adapter-out-persistence`, `adapter-out-messaging`, `adapter-events` | **Oui** : `WebApplication`, qui assemble toute l'application |
-| `frontend` | (hors périmètre) | — | Oui |
 
 ```mermaid
 flowchart BT
-    P["adapter-out-persistence"] --> D["domain"]
-    M["adapter-out-messaging"] --> D
-    E["adapter-events"] --> D
-    B["adapter-out-batch"] --> P
-    B --> D
-    W["adapter-in-web<br/>(application exécutable)"] --> P
-    W --> M
-    W --> E
-    W --> D
+    subgraph libs ["Bibliothèques"]
+        D["domain"]
+        WEB["adapter-in-web"]
+        MQ["adapter-in-mq"]
+        BAT["adapter-in-batch"]
+        DB["adapter-out-persistence"]
+        MSG["adapter-out-messaging"]
+        EVT["adapter-events"]
+    end
+    WEB --> D
+    MQ --> D
+    BAT --> D
+    DB --> D
+    MSG --> D
+    EVT --> D
+    BOOT["bootstrap<br/>(seul module exécutable)"] -.->|"choisit"| WEB
+    BOOT -.-> MQ
+    BOOT -.-> BAT
+    BOOT --> DB
+    BOOT --> MSG
+    BOOT --> EVT
 ```
+
+**À quoi sert ce module ?** Une même base de code peut être déployée de plusieurs façons, selon
+les adaptateurs que l'on inclut :
+
+| Je veux déployer… | `bootstrap` dépend de… |
+|---|---|
+| Une application complète (API + messages + traitement planifié) | `adapter-in-web`, `adapter-in-mq`, `adapter-in-batch`, et les adaptateurs `out` |
+| Seulement l'API REST | `adapter-in-web` et les adaptateurs `out` nécessaires |
+| Seulement le consommateur de messages MQ | `adapter-in-mq` et les adaptateurs `out` nécessaires |
+| Seulement le traitement planifié | `adapter-in-batch` et la persistance |
+
+Le choix se fait par **les dépendances Maven du module `bootstrap`** (ou par plusieurs
+variantes de ce module, une par type de déploiement), sans modifier ni le domaine ni les adaptateurs.
+
+**Ce que contient `bootstrap`** (et seulement cela) :
+
+- la classe `main` annotée `@SpringBootApplication`, avec le package à scanner (`com.example.ordermanagement`) ;
+- la configuration applicative : `application.yml` (base de données, MQ, sécurité, réglages Spring Modulith comme `republish-outstanding-events-on-restart`) ;
+- les tests d'intégration de bout en bout et la génération de la documentation Modulith (`ModulithDocumentationTest`), car ce module voit toute l'application ;
+- le plugin de packaging `spring-boot-maven-plugin`, qui produit le jar exécutable.
+
+Il ne contient **aucune règle métier** ni aucun adaptateur.
+
+> **Pourquoi un module dédié ?** Avant sa création, `adapter-in-web` jouait deux rôles : adaptateur de
+> l'API REST *et* point de démarrage de toute l'application. Un adaptateur ne devrait pas
+> décider de ce qui est assemblé. Séparer les deux rôles permet d'ajouter un adaptateur (MQ, batch,
+> autre) sans toucher à l'API web, et de déployer des variantes différentes.
+
+#### Structure actuelle
+
+Le module `bootstrap` existe maintenant dans le code : il contient `OrderManagementApplication`, le `application.yml` et les tests de bout en bout, et `adapter-in-web` est devenu une bibliothèque. Les modules `adapter-in-mq` et `adapter-in-batch` ne sont pas encore créés : l'entrée MQ reste dans `adapter-out-messaging` et le traitement planifié dans `adapter-out-batch`, qui garde sa propre classe de démarrage. État actuel :
+
+| Module Maven | Contient | Dépend de | Exécutable ? |
+|---|---|---|---|
+| `domain` | `application.*` et `domain.*` des modules métier, plus `shared` | Aucun autre module du projet | Non (bibliothèque) |
+| `adapter-out-persistence` | Persistance JPA | `domain` | Non |
+| `adapter-out-messaging` | IBM MQ (entrée et sortie) | `domain` | Non |
+| `adapter-out-batch` | Traitement planifié | `domain`, `adapter-out-persistence` | Oui (`BatchApplication`) |
+| `adapter-events` | Événements Modulith, table `event_publication` | `domain` | Non |
+| `adapter-in-web` | API REST, `infrastructure` | `domain` | Non (bibliothèque) |
+| `bootstrap` | `OrderManagementApplication`, `application.yml`, tests de bout en bout | `domain`, `adapter-in-web`, persistance, messagerie, événements | **Oui** (assemble l'application) |
+| `frontend` | (hors périmètre) | — | Oui |
 
 #### Ce qu'il faut en retenir
 
 - **Le sens des flèches est celui de l'architecture hexagonale** : tous les adaptateurs dépendent de `domain` ; `domain` ne dépend d'aucun adaptateur. Maven **fait respecter** la règle d'or au moment de la compilation : si `domain` essayait d'importer une classe JPA, le build échouerait.
-- **`adapter-in-web` est le point d'assemblage** : c'est lui qui réunit les autres modules dans une seule application Spring Boot.
-- **Les adaptateurs ne se connaissent pas entre eux** (sauf `adapter-out-batch`, qui réutilise la persistance).
-- **Un nouveau type d'adaptateur = un nouveau module Maven** (par exemple un `adapter-out-rest` pour appeler une API externe), ajouté dans le pom parent et dans les dépendances de `adapter-in-web`.
+- **Les adaptateurs ne se connaissent pas entre eux.** Seul `bootstrap` les voit tous. Les exceptions actuelles (par exemple le traitement planifié qui réutilise la persistance) sont à examiner lors de la migration.
+- **Un nouveau type d'adaptateur = un nouveau module Maven** (par exemple `adapter-out-rest` pour appeler une API externe), ajouté dans le pom parent, puis dans les dépendances de `bootstrap` s'il doit être démarré.
+- **`bootstrap` est le seul module exécutable** (structure cible).
 
 > **Remarque : `domain` Maven et package `domain`.** Le module Maven `domain` regroupe aujourd'hui
 > **deux** couches de la structure cible : `application` (services, validateurs, ports) et `domain`
@@ -492,6 +543,10 @@ flowchart BT
 > Séparer en deux modules Maven (`domain` pur, `application`) permettrait à Maven de faire respecter
 > cette règle aussi, au prix d'un module de plus. C'est une évolution possible, à discuter avec les équipes.
 
+> **Point à valider.** La séparation des entrées MQ et batch en modules `adapter-in-*` distincts, et
+> le déploiement de variantes partielles (par exemple sans l'API REST), n'ont pas été essayés sur le projet.
+> En particulier, les configurations de sécurité et de messagerie qui vivent aujourd'hui dans
+> `infrastructure` devront être réparties entre les adaptateurs concernés et `bootstrap`.
 
 ---
 
@@ -1048,7 +1103,7 @@ Le cycle de vie d'une publication :
 | 3. Complétion | L'écouteur se termine sans erreur | `COMPLETED`, `completion_date` renseignée |
 | 4. Échec puis reprise | En cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué | `FAILED` (ou `PROCESSING` si l'arrêt a interrompu le traitement), puis `RESUBMITTED` à la relance |
 
-Réglage utilisé (`application.yml` de `adapter-in-web`) :
+Réglage utilisé (`application.yml` du module `bootstrap`, voir 2.11) :
 
 ```yaml
 spring:
@@ -1107,8 +1162,8 @@ Spring Modulith **analyse le code compilé** et génère des diagrammes toujours
 un schéma d'architecture qui se périme. Règle de détection : chaque sous-package direct de
 `com.example.ordermanagement` est un module.
 
-Le test `ModulithDocumentationTest` (dans `adapter-in-web`) produit, dans
-`adapter-in-web/target/spring-modulith-docs` :
+Le test `ModulithDocumentationTest` (dans `bootstrap`) produit, dans
+`bootstrap/target/spring-modulith-docs` :
 
 | Fichier | Contenu |
 |---|---|
@@ -1116,7 +1171,7 @@ Le test `ModulithDocumentationTest` (dans `adapter-in-web`) produit, dans
 | `module-<nom>.puml` | Un diagramme par module |
 | `module-<nom>.adoc` | Fiche du module : composants, références de beans, événements écoutés |
 
-Pour le générer : `mvn test -pl adapter-in-web -am -Dtest=ModulithDocumentationTest`. Les
+Pour le générer : `mvn test -pl bootstrap -am -Dtest=ModulithDocumentationTest`. Les
 fichiers `.puml` se visualisent avec PlantUML ou un greffon d'IDE, les `.adoc` avec n'importe
 quel outil AsciiDoc.
 
