@@ -5,7 +5,7 @@
 > détaille la mise en œuvre. Un débutant peut lire les introductions et les
 > tableaux ; un développeur expérimenté trouvera le détail technique dans le reste de chaque section.
 >
-> **Périmètre** : le backend uniquement (le frontend n'est pas couvert).
+> **Périmètre** : le backend. Le frontend n'est abordé que dans le chapitre 6, uniquement pour la réception et l'affichage des erreurs de l'API.
 >
 > **Convention de lecture** : les éléments marqués **« cible »** décrivent l'organisation que
 > les équipes doivent adopter ; ils ne reflètent pas encore tout le code de l'application
@@ -19,8 +19,9 @@
 3. [Validation dans le domaine](#3-validation-dans-le-domaine)
 4. [Gestion des erreurs avec `@RestControllerAdvice`](#4-gestion-des-erreurs-avec-restcontrolleradvice)
 5. [Spring Modulith](#5-spring-modulith)
-6. [Glossaire](#6-glossaire)
-7. [Où trouver le détail](#7-où-trouver-le-détail)
+6. [Le frontend et les erreurs du backend](#6-le-frontend-et-les-erreurs-du-backend)
+7. [Glossaire](#7-glossaire)
+8. [Où trouver le détail](#8-où-trouver-le-détail)
 
 ---
 
@@ -115,7 +116,8 @@ par ceux de votre propre sujet métier.
 | Ajouter une règle de validation | Chapitre 3 |
 | Comprendre une réponse d'erreur de l'API ou en ajouter une | Chapitre 4 |
 | Faire réagir une partie du code à un changement d'état | Chapitre 5 |
-| Comprendre un terme | Chapitre 6 (glossaire) |
+| Comprendre comment une erreur de l'API arrive à l'écran, ou le chemin d'une erreur de Bean Validation | Chapitre 6 |
+| Comprendre un terme | Chapitre 7 (glossaire) |
 
 ---
 
@@ -1198,7 +1200,204 @@ Liens actuellement détectés (sur le code actuel) :
 
 ---
 
-## 6. Glossaire
+## 6. Le frontend et les erreurs du backend
+
+> **Périmètre de ce chapitre.** Le reste du document traite du backend. Ce chapitre est
+> volontairement court et ne couvre qu'un point : **ce qui arrive à une erreur de l'API une fois
+> qu'elle quitte le backend**, et comment elle devient un message affiché à l'utilisateur. Il
+> décrit aussi, côté backend, le chemin d'une erreur de Bean Validation (Jakarta Validation)
+> jusqu'à `GlobalExceptionHandler`.
+
+### 6.1 Rôle du frontend dans l'architecture
+
+Le frontend est une **application séparée** (module Maven `frontend`, écrite avec Spring MVC et
+Thymeleaf, port `8081`). Elle n'appartient pas à l'hexagone :
+
+- elle ne dépend **d'aucun** module du backend ;
+- elle communique avec l'API REST uniquement par **HTTP et JSON**, comme le ferait n'importe quel client externe ;
+- elle envoie un jeton d'authentification (`Authorization: Bearer …`) configuré dans son `application.yml` ;
+- elle contient sa **propre copie minimale** du format d'erreur (`ResponseApiErrorDto`, `ApiErrorDto`) : c'est ce qui lui permet de lire la réponse sans partager de code avec le backend.
+
+Cette copie est un **contrat** : si le format `ResponseApiError` du chapitre 4 change, la copie
+du frontend doit changer en même temps.
+
+### 6.2 Deux validations successives
+
+Une erreur de saisie peut être détectée à **deux endroits**, dans cet ordre :
+
+| Étape | Où | Outil | Appel au backend ? |
+|---|---|---|---|
+| 1 | Frontend | Bean Validation sur le formulaire (`CreateProductForm` : `@NotBlank`, `@DecimalMin`…) | **Non** : le formulaire est réaffiché avec les erreurs |
+| 2 | Backend | Bean Validation sur le DTO de requête (`CreateProductRequest`), puis règles du domaine (chapitre 3) | Oui |
+
+La première validation améliore le confort (réponse immédiate, sans aller-retour réseau). **La
+seconde fait autorité** : n'importe quel autre client peut appeler l'API sans passer par le
+formulaire. Les règles écrites dans le frontend sont donc une commodité, jamais une protection.
+
+### 6.3 Côté backend : de Jakarta Validation à `GlobalExceptionHandler`
+
+Prenons la création d'un produit avec un nom vide et sans prix. Voici, étape par étape, ce qui se passe
+dans l'API **avant même que le code du contrôleur ne s'exécute**.
+
+```mermaid
+sequenceDiagram
+    participant C as Client (frontend)
+    participant D as DispatcherServlet
+    participant V as Validation Jakarta
+    participant K as ProductController
+    participant H as GlobalExceptionHandler
+
+    C->>D: POST /api/products (JSON)
+    D->>D: Convertit le JSON en CreateProductRequest
+    D->>V: @Valid : vérifie les annotations du DTO
+    V-->>D: Violations : name (NotBlank), price (NotNull)
+    D--xK: Le contrôleur n'est PAS appelé
+    D->>H: MethodArgumentNotValidException
+    H->>H: Convertit, regroupe par code
+    H-->>C: 400 + ResponseApiError (JSON)
+```
+
+1. **Les annotations sont sur le DTO de requête.** `CreateProductRequest` déclare ses contraintes
+   directement sur les composants du `record` :
+
+   ```java
+   public record CreateProductRequest(
+           @NotNull UUID id,
+           @NotBlank String name,
+           @NotNull @DecimalMin(value = "0.0", inclusive = false) BigDecimal price,
+           boolean available) {}
+   ```
+
+2. **`@Valid` déclenche la vérification.** Dans le contrôleur, le paramètre est annoté
+   `@Valid @RequestBody CreateProductRequest request`. Spring convertit d'abord le JSON en objet, puis
+   demande à Jakarta Validation de vérifier toutes les contraintes.
+3. **En cas de violation, Spring lève `MethodArgumentNotValidException`.** Cette exception contient un
+   `BindingResult` : la liste des erreurs, avec pour chacune le **champ** (`name`), le **code** de la
+   contrainte (`NotBlank`) et le **message** (`must not be blank`). **Le corps de la méthode du
+   contrôleur n'est jamais exécuté** : le domaine n'est pas atteint.
+4. **Spring cherche un gestionnaire.** Le mécanisme d'exceptions de Spring MVC parcourt les classes
+   `@RestControllerAdvice` et retient la méthode `@ExceptionHandler` dont le type est le plus proche :
+   ici `GlobalExceptionHandler.handleBeanValidation` (famille « Forme de la requête », section 4.4).
+5. **Le gestionnaire traduit.** Pour chaque erreur de champ, il crée un petit objet `FieldProblem`
+   (champ, code, message). Le **code** est celui de la contrainte (`NotBlank`, `NotNull`…), c'est-à-dire un
+   identifiant stable et lisible par un programme. Les erreurs globales (contrainte portant sur l'objet entier) sont traitées de la même façon, sans champ.
+6. **Il regroupe par code.** `groupByCode` produit **une seule `ApiError` par code**, avec la liste des
+   champs concernés dans `errorsValueList`, et un `label` lisible déduit du code (`NotBlank` → `Not Blank`).
+7. **Il répond `400`** avec le format unique du chapitre 4, au niveau `BLOCKING` (l'appelant peut corriger sa demande).
+
+Réponse obtenue pour l'exemple :
+
+```json
+{
+  "status": "BAD_REQUEST",
+  "errors": [
+    { "code": "NotBlank", "level": "BLOCKING", "label": "Not Blank",
+      "description": "must not be blank", "uriDesc": "https://…/NotBlank",
+      "errorsValueList": ["name"] },
+    { "code": "NotNull", "level": "BLOCKING", "label": "Not Null",
+      "description": "must not be null", "uriDesc": "https://…/NotNull",
+      "errorsValueList": ["price"] }
+  ]
+}
+```
+
+**Variantes du même principe** (toujours dans la même famille du gestionnaire) :
+
+| Cause | Exception levée | Code d'erreur renvoyé |
+|---|---|---|
+| Contrainte sur un `@RequestBody` (`@Valid`) | `MethodArgumentNotValidException` | Le nom de la contrainte (`NotBlank`…) |
+| Contrainte sur un paramètre d'URL (`@Validated`) | `ConstraintViolationException` | Le nom de la contrainte |
+| JSON illisible ou valeur impossible (UUID invalide, par exemple) | `HttpMessageNotReadableException` | `MALFORMED_REQUEST_BODY` |
+| Paramètre d'un mauvais type | `MethodArgumentTypeMismatchException` | `TYPE_MISMATCH` |
+
+**À ne pas confondre avec le niveau 3 du chapitre 3.** La Bean Validation ne contrôle que la
+**forme** des données (champ présent, longueur, valeur minimale) : réponse `400`, sans accès à la base. Les règles métier
+(produit introuvable, prix qui ne correspond pas au catalogue…) sont vérifiées plus tard, dans le
+domaine, et donnent un `422` produit par `DomainValidationException`.
+
+### 6.4 Côté frontend : de la réponse HTTP à une exception typée
+
+Côté frontend, chaque appel à l'API passe par un client (`ProductApiClient`, `OrderApiClient`), qui
+utilise `RestClient` de Spring. Ce composant lève automatiquement une exception pour toute réponse `4xx` ou `5xx`. Le client
+l'attrape et la confie à `ResponseApiErrorTranslator`, qui fait le **travail inverse** de
+`GlobalExceptionHandler` :
+
+```mermaid
+flowchart LR
+    R["Réponse HTTP<br/>4xx / 5xx + JSON"] --> T["ResponseApiErrorTranslator"]
+    T -->|"lit le corps"| B["ResponseApiErrorDto"]
+    T --> E["Exception typée"]
+    E --> C["Contrôleur MVC"]
+    C --> V["Vue Thymeleaf"]
+```
+
+Le traducteur lit le corps JSON (de façon tolérante : s'il est vide ou illisible, il utilise le message
+de l'exception) et choisit l'exception selon le **code HTTP** :
+
+| Réponse du backend | Exception côté frontend | Contenu utile |
+|---|---|---|
+| `404` | `BackendNotFoundException` | Description de l'erreur |
+| `409` | `BackendConflictException` | Description (transition interdite, doublon…) |
+| `422` | `BackendOrderValidationException` | Une erreur **par ligne de commande** (`productId`, `code`, message) |
+| Toute autre réponse (`400`, `401`, `403`, `5xx`…) | `BackendUnavailableException` | Statut et description |
+| Serveur injoignable (refus de connexion, délai dépassé) | `BackendUnavailableException` | « Could not reach the order service » |
+
+Toutes dérivent de `BackendApiException`. Le message affiché est la concaténation des
+`description` de chaque `ApiError`, séparées par un point-virgule.
+
+Pour le `422`, le traducteur « déplie » `errorsValueList` : le backend a regroupé les erreurs de même code
+(chapitre 4), le frontend retrouve **une erreur par produit** pour pouvoir l'afficher à côté de la bonne ligne.
+
+### 6.5 Où l'erreur s'affiche
+
+Chaque contrôleur MVC attrape les exceptions qu'il sait afficher, et laisse les autres à un filet de
+sécurité (`MvcExceptionHandler`, l'équivalent frontend de `GlobalExceptionHandler`).
+
+| Situation | Attrapée par | Ce que voit l'utilisateur |
+|---|---|---|
+| Champ invalide **détecté par le frontend** | `BindingResult` du formulaire | Message sous le champ concerné, formulaire réaffiché |
+| `422` sur une commande | `OrderMvcController.create`, via `mapItemErrors` | Message **sous la ligne de commande concernée** (champ `items[i].productId`) |
+| `422` sans ligne correspondante | Même méthode | Message **global** en haut du formulaire |
+| Autre erreur du backend lors d'une création (commande ou produit) | `catch (BackendApiException)` | Message **global** en haut du formulaire |
+| `409` sur confirmer / terminer / annuler | `OrderMvcController.transition` | Bandeau rouge après redirection (message « flash ») |
+| `404` sur l'affichage d'une commande | `MvcExceptionHandler` | Page « introuvable » (statut 404) |
+| Backend injoignable ou erreur non prévue, hors formulaire | `MvcExceptionHandler` | Page « Something went wrong » (statut 502 ou 500) |
+
+Les contrôleurs utilisent le mécanisme standard de Spring pour les formulaires : une erreur est
+enregistrée dans le `BindingResult` (`rejectValue` pour un champ, `reject` pour une erreur globale),
+et Thymeleaf l'affiche avec `th:errors` ou `#fields.globalErrors()`. Les erreurs venues du backend
+sont ainsi affichées **de la même façon** que celles détectées par le frontend lui-même.
+
+### 6.6 Exemple complet : une commande avec un produit indisponible
+
+1. L'utilisateur remplit le formulaire. Une ligne référence un produit qui a été **retiré de la vente** entre l'affichage du formulaire et l'envoi.
+2. Le formulaire passe la validation du frontend (la forme est correcte) : `POST /api/orders` est appelé.
+3. Le backend passe la Bean Validation, puis `CreateOrderValidator` (chapitre 3) détecte la violation et le service lève `DomainValidationException`. `GlobalExceptionHandler` répond `422` :
+
+   ```json
+   { "status": "UNPROCESSABLE_CONTENT",
+     "errors": [ { "code": "PRODUCT_NOT_AVAILABLE", "level": "BLOCKING",
+                   "label": "Product Not Available",
+                   "description": "Product not available: <identifiant du produit>",
+                   "errorsValueList": ["<identifiant du produit>"] } ] }
+   ```
+
+4. `ResponseApiErrorTranslator` reconnaît le `422` et crée une `BackendOrderValidationException` avec une erreur par produit.
+5. `OrderMvcController.create` appelle `mapItemErrors` : il retrouve la ligne du formulaire qui porte cet identifiant de produit et enregistre l'erreur sur `items[i].productId`.
+6. Le formulaire est réaffiché, avec le message **sous la ligne concernée**, et les valeurs saisies sont conservées.
+
+### 6.7 Points d'attention
+
+- **S'appuyer sur le `code`, pas sur le texte.** Le frontend décide à partir du statut HTTP et du `code`. Les messages (`description`) sont pour les humains et peuvent changer.
+- **Le sens de `errorsValueList` dépend de l'erreur.** Pour une erreur de Bean Validation (`400`), ce sont des **noms de champs** ; pour une erreur de commande (`422`), ce sont des **identifiants de produit**. Le frontend n'interprète aujourd'hui que le second cas.
+- **Un `400` du backend n'est pas rattaché à un champ.** Il apparaît comme message global. Cela ne devrait pas arriver si les règles du formulaire reproduisent celles du DTO ; il faut donc les garder alignées (par exemple `@NotBlank` côté `CreateProductForm` et côté `CreateProductRequest`).
+- **Les erreurs de sécurité (`401`, `403`)** ne sont pas traitées spécialement : elles s'affichent comme un message global, ou comme la page d'erreur générale.
+- **Aucun détail technique ne doit remonter.** Pour une erreur `500`, le backend ne renvoie qu'un message générique avec une référence (section 4.5) ; le frontend affiche à son tour un message générique.
+- **Le format est un contrat partagé.** Toute modification de `ResponseApiError` (chapitre 4) doit être répercutée dans `ResponseApiErrorDto` et `ApiErrorDto` du frontend.
+
+---
+
+## 7. Glossaire
 
 | Terme | Définition |
 |---|---|
@@ -1219,7 +1418,7 @@ Liens actuellement détectés (sur le code actuel) :
 
 ---
 
-## 7. Où trouver le détail
+## 8. Où trouver le détail
 
 | Sujet | Document du dépôt |
 |---|---|
@@ -1227,3 +1426,4 @@ Liens actuellement détectés (sur le code actuel) :
 | Validation et gestion des erreurs, en détail | `Validation.md` |
 | Choix sur les événements, le client et l'e-mail simulé | `Events_CoiseII.md` |
 | Stratégie de tests d'intégration et infrastructure | `INTEGRATION_TESTS.md` |
+| Validation côté frontend et affichage des erreurs, en détail | `FRONTEND_VALIDATION.md` |
