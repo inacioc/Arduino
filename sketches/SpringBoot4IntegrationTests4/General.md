@@ -1360,6 +1360,64 @@ Réponse obtenue pour l'exemple :
 (produit introuvable, prix qui ne correspond pas au catalogue…) sont vérifiées plus tard, dans le
 domaine, et donnent un `422` produit par `DomainValidationException`.
 
+**Et pour la validation du domaine ?** Le chemin est différent : l'erreur ne naît plus dans Spring,
+mais **dans le domaine**, après que la forme de la requête a été acceptée. Reprenons la commande avec un
+produit retiré de la vente (voir l'exemple complet en 6.5).
+
+```mermaid
+sequenceDiagram
+    participant C as Client (frontend)
+    participant K as OrderController
+    participant S as OrderDomainService
+    participant V as CreateOrderValidator
+    participant R as ProductRepositoryPort
+    participant N as ValidationNotification
+    participant H as GlobalExceptionHandler
+
+    C->>K: POST /api/orders (JSON)
+    Note over K: Bean Validation : forme OK
+    K->>S: createOrder(command)
+    S->>V: assertValid(command)
+    V->>N: crée une notification vide
+    loop pour chaque ligne de commande
+        V->>R: findById(productId)
+        R-->>V: produit
+        alt produit retiré de la vente
+            V->>N: addError(PRODUCT_NOT_AVAILABLE, productId, message)
+        else prix différent du catalogue
+            V->>N: addError(PRICE_MISMATCH, productId, message)
+        end
+    end
+    V->>V: la notification contient des erreurs ?
+    V--xS: DomainValidationException(erreurs)
+    Note over S: Rien n'est enregistré ni publié
+    S--xK: l'exception remonte
+    K--xH: aucun try/catch dans le contrôleur
+    H->>H: regroupe par code
+    H-->>C: 422 + ResponseApiError (JSON)
+```
+
+1. **La forme est déjà validée.** Le contrôleur n'est appelé que si la Bean Validation a réussi (schéma précédent).
+2. **Le service délègue au validateur.** `OrderDomainService` appelle `assertValid` avant toute
+   écriture : aucune commande n'est créée tant que les règles ne sont pas respectées.
+3. **Le validateur accumule, il ne s'arrête pas à la première erreur.** Pour chaque ligne, il interroge
+   le catalogue **par l'intermédiaire d'un port** (`ProductRepositoryPort`) : le domaine ne connaît
+   pas la base de données. Chaque règle violée est **ajoutée** à la `ValidationNotification`
+   (`addError` : code, chemin, message). L'utilisateur reçoit ainsi **toutes** les erreurs en une seule réponse.
+4. **Une seule exception, à la fin.** Si la notification contient des erreurs, `assertValid` lève
+   `DomainValidationException` avec la liste complète.
+5. **Le gestionnaire global traduit.** L'exception traverse le service et le contrôleur sans être attrapée,
+   jusqu'à `GlobalExceptionHandler`, qui répond `422` au même format que le `400` du schéma précédent.
+
+| | Bean Validation | Validation du domaine |
+|---|---|---|
+| Ce qu'elle contrôle | La **forme** de la requête | Les **règles métier** |
+| Où elle s'exécute | Avant le contrôleur (Spring) | Dans le domaine (`*Validator`) |
+| Accès à la base (via un port) | Non | **Oui** |
+| Exception | `MethodArgumentNotValidException` | `DomainValidationException` |
+| Statut HTTP | `400` | `422` |
+| Sens de `errorsValueList` | Noms de **champs** | Identifiants **métier** (produit…) |
+
 ### 6.3 Côté frontend : de la réponse HTTP à une exception typée
 
 Côté frontend, chaque appel à l'API passe par un client (`ProductApiClient`, `OrderApiClient`), qui
