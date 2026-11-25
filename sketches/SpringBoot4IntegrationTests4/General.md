@@ -1207,6 +1207,12 @@ Liens actuellement détectés (sur le code actuel) :
 > qu'elle quitte le backend**, et comment elle devient un message affiché à l'utilisateur. Il
 > décrit aussi, côté backend, le chemin d'une erreur de Bean Validation (Jakarta Validation)
 > jusqu'à `GlobalExceptionHandler`.
+>
+> **Deux niveaux de certitude.** Les parties « backend » (6.3) décrivent le code de ce projet. Les
+> parties « frontend » s'appuient sur le module `frontend` d'exemple du dépôt, **qui ne reflète pas
+> forcément l'implémentation réelle des équipes** : dans l'implémentation réelle, le frontend ne fait
+> pas de validation Jakarta de son côté et n'a pas de gestionnaire d'exceptions global. Le chapitre est
+> écrit pour cette situation ; ce qui existe seulement dans l'exemple du dépôt est signalé comme tel.
 
 ### 6.1 Rôle du frontend dans l'architecture
 
@@ -1221,18 +1227,26 @@ Thymeleaf, port `8081`). Elle n'appartient pas à l'hexagone :
 Cette copie est un **contrat** : si le format `ResponseApiError` du chapitre 4 change, la copie
 du frontend doit changer en même temps.
 
-### 6.2 Deux validations successives
+### 6.2 Une seule validation qui fait autorité : celle du backend
 
-Une erreur de saisie peut être détectée à **deux endroits**, dans cet ordre :
+Dans l'implémentation réelle, **le frontend ne valide pas lui-même** les données saisies (pas de
+Bean Validation sur ses formulaires) : il envoie ce que l'utilisateur a saisi, et c'est le backend qui
+vérifie. Conséquence importante pour le reste du chapitre :
 
-| Étape | Où | Outil | Appel au backend ? |
-|---|---|---|---|
-| 1 | Frontend | Bean Validation sur le formulaire (`CreateProductForm` : `@NotBlank`, `@DecimalMin`…) | **Non** : le formulaire est réaffiché avec les erreurs |
-| 2 | Backend | Bean Validation sur le DTO de requête (`CreateProductRequest`), puis règles du domaine (chapitre 3) | Oui |
+| Question | Réponse |
+|---|---|
+| Où sont écrites les règles de validation ? | **Une seule fois**, dans le backend (chapitre 3) |
+| Que se passe-t-il quand l'utilisateur saisit un nom vide ? | La requête part au backend, qui répond `400` ; **c'est la réponse d'erreur du backend qui fournit le message à afficher** |
+| Le format d'erreur est-il un cas rare ? | **Non** : c'est le chemin normal d'une saisie incorrecte. Le frontend doit donc savoir lire et afficher ces réponses correctement |
 
-La première validation améliore le confort (réponse immédiate, sans aller-retour réseau). **La
-seconde fait autorité** : n'importe quel autre client peut appeler l'API sans passer par le
-formulaire. Les règles écrites dans le frontend sont donc une commodité, jamais une protection.
+Avantage : aucune règle n'est dupliquée, donc aucun risque que le frontend et le backend se
+contredisent. Contrepartie : chaque erreur de saisie coûte un aller-retour réseau, et la qualité de
+l'expérience utilisateur dépend entièrement de la façon dont le frontend affiche les erreurs du backend.
+
+> **Dans l'exemple du dépôt**, le module `frontend` ajoute une validation Bean Validation sur ses
+> formulaires (`CreateProductForm`, `CreateOrderForm`) avant d'appeler l'API. Ce n'est pas le cas dans
+> l'implémentation réelle ; si une équipe l'ajoute, ses règles doivent rester alignées sur celles du
+> backend, qui reste l'autorité.
 
 ### 6.3 Côté backend : de Jakarta Validation à `GlobalExceptionHandler`
 
@@ -1350,28 +1364,34 @@ Pour le `422`, le traducteur « déplie » `errorsValueList` : le backend a regr
 
 ### 6.5 Où l'erreur s'affiche
 
-Chaque contrôleur MVC attrape les exceptions qu'il sait afficher, et laisse les autres à un filet de
-sécurité (`MvcExceptionHandler`, l'équivalent frontend de `GlobalExceptionHandler`).
+Le frontend doit décider, pour chaque erreur reçue, **où** l'afficher. Le code du dépôt illustre les
+trois emplacements possibles : sous un champ, en message global dans le formulaire, ou en bandeau
+après une redirection.
 
 | Situation | Attrapée par | Ce que voit l'utilisateur |
 |---|---|---|
-| Champ invalide **détecté par le frontend** | `BindingResult` du formulaire | Message sous le champ concerné, formulaire réaffiché |
 | `422` sur une commande | `OrderMvcController.create`, via `mapItemErrors` | Message **sous la ligne de commande concernée** (champ `items[i].productId`) |
 | `422` sans ligne correspondante | Même méthode | Message **global** en haut du formulaire |
-| Autre erreur du backend lors d'une création (commande ou produit) | `catch (BackendApiException)` | Message **global** en haut du formulaire |
+| Autre erreur du backend lors d'une création (commande ou produit), y compris `400` | `catch (BackendApiException)` | Message **global** en haut du formulaire (ensemble des descriptions) |
 | `409` sur confirmer / terminer / annuler | `OrderMvcController.transition` | Bandeau rouge après redirection (message « flash ») |
-| `404` sur l'affichage d'une commande | `MvcExceptionHandler` | Page « introuvable » (statut 404) |
-| Backend injoignable ou erreur non prévue, hors formulaire | `MvcExceptionHandler` | Page « Something went wrong » (statut 502 ou 500) |
+| Toute exception **non attrapée** (par exemple `404` sur l'affichage d'une commande, backend injoignable lors d'une consultation) | Personne dans l'implémentation réelle | **Page d'erreur par défaut de Spring Boot** (« Whitelabel Error Page », statut 500) |
 
 Les contrôleurs utilisent le mécanisme standard de Spring pour les formulaires : une erreur est
 enregistrée dans le `BindingResult` (`rejectValue` pour un champ, `reject` pour une erreur globale),
-et Thymeleaf l'affiche avec `th:errors` ou `#fields.globalErrors()`. Les erreurs venues du backend
-sont ainsi affichées **de la même façon** que celles détectées par le frontend lui-même.
+et Thymeleaf l'affiche avec `th:errors` ou `#fields.globalErrors()`.
+
+> **Dans l'exemple du dépôt**, un `MvcExceptionHandler` (`@ControllerAdvice`, l'équivalent frontend de
+> `GlobalExceptionHandler`) attrape les exceptions restantes et affiche une page « introuvable » (404) ou
+> « Something went wrong » (502 ou 500). **Il n'existe pas dans l'implémentation réelle**, où une exception
+> non attrapée aboutit à la page par défaut de Spring Boot, qui n'a aucun rapport avec le format d'erreur du
+> backend et peut surprendre l'utilisateur. Ajouter un `@ControllerAdvice` de ce type est la
+> recommandation de ce document : il centralise le traitement, de la même façon que `GlobalExceptionHandler`
+> le fait côté backend (chapitre 4).
 
 ### 6.6 Exemple complet : une commande avec un produit indisponible
 
 1. L'utilisateur remplit le formulaire. Une ligne référence un produit qui a été **retiré de la vente** entre l'affichage du formulaire et l'envoi.
-2. Le formulaire passe la validation du frontend (la forme est correcte) : `POST /api/orders` est appelé.
+2. Le frontend ne valide rien lui-même : il envoie `POST /api/orders` avec les valeurs saisies.
 3. Le backend passe la Bean Validation, puis `CreateOrderValidator` (chapitre 3) détecte la violation et le service lève `DomainValidationException`. `GlobalExceptionHandler` répond `422` :
 
    ```json
@@ -1383,16 +1403,16 @@ sont ainsi affichées **de la même façon** que celles détectées par le front
    ```
 
 4. `ResponseApiErrorTranslator` reconnaît le `422` et crée une `BackendOrderValidationException` avec une erreur par produit.
-5. `OrderMvcController.create` appelle `mapItemErrors` : il retrouve la ligne du formulaire qui porte cet identifiant de produit et enregistre l'erreur sur `items[i].productId`.
+5. `OrderMvcController.create` appelle `mapItemErrors` : il retrouve la ligne du formulaire qui porte cet identifiant de produit et enregistre l'erreur sur `items[i].productId`. (Si aucune ligne ne correspond, l'erreur devient un message global.)
 6. Le formulaire est réaffiché, avec le message **sous la ligne concernée**, et les valeurs saisies sont conservées.
 
 ### 6.7 Points d'attention
 
 - **S'appuyer sur le `code`, pas sur le texte.** Le frontend décide à partir du statut HTTP et du `code`. Les messages (`description`) sont pour les humains et peuvent changer.
 - **Le sens de `errorsValueList` dépend de l'erreur.** Pour une erreur de Bean Validation (`400`), ce sont des **noms de champs** ; pour une erreur de commande (`422`), ce sont des **identifiants de produit**. Le frontend n'interprète aujourd'hui que le second cas.
-- **Un `400` du backend n'est pas rattaché à un champ.** Il apparaît comme message global. Cela ne devrait pas arriver si les règles du formulaire reproduisent celles du DTO ; il faut donc les garder alignées (par exemple `@NotBlank` côté `CreateProductForm` et côté `CreateProductRequest`).
+- **Un `400` du backend n'est pas encore rattaché à un champ.** Sans validation côté frontend, c'est pourtant le cas le plus courant (nom vide, prix manquant). Le traducteur du dépôt ne traite que le `422` par ligne de commande : un `400` apparaît donc comme un message global concaténant toutes les descriptions. **Amélioration recommandée** : pour un `400`, lire chaque `ApiError` et enregistrer son message sur chaque nom de champ de `errorsValueList` (`bindingResult.rejectValue(champ, code, description)`), pour afficher le message sous le champ concerné, comme pour le `422`.
 - **Les erreurs de sécurité (`401`, `403`)** ne sont pas traitées spécialement : elles s'affichent comme un message global, ou comme la page d'erreur générale.
-- **Aucun détail technique ne doit remonter.** Pour une erreur `500`, le backend ne renvoie qu'un message générique avec une référence (section 4.5) ; le frontend affiche à son tour un message générique.
+- **Aucun détail technique ne doit remonter.** Pour une erreur `500`, le backend ne renvoie qu'un message générique avec une référence (section 4.5) ; le frontend doit afficher à son tour un message générique, avec cette référence si possible, plutôt que la page par défaut de Spring Boot.
 - **Le format est un contrat partagé.** Toute modification de `ResponseApiError` (chapitre 4) doit être répercutée dans `ResponseApiErrorDto` et `ApiErrorDto` du frontend.
 
 ---
