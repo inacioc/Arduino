@@ -1206,11 +1206,29 @@ Quand un utilisateur remplit un formulaire et que quelque chose ne va pas (un no
 retiré de la vente…), il ne voit jamais l'exception Java : il voit un **message clair, placé au bon
 endroit**. Ce chapitre suit le trajet de ce message, de sa naissance dans le backend jusqu'à l'écran :
 
-1. **Le backend détecte le problème** : une contrainte Jakarta Validation ou une règle du domaine échoue.
-2. **`GlobalExceptionHandler` le met en forme** : il le transforme en réponse HTTP (`400`, `422`…) au
-   format d'erreur unique du chapitre 4.
-3. **Le frontend lit la réponse** : il la traduit en exception typée, selon le statut HTTP et le `code`.
-4. **Le frontend l'affiche** : sous un champ, en message global ou en bandeau.
+1. **Le backend détecte le problème.** Deux origines possibles :
+   - une contrainte **Jakarta Validation** échoue sur le DTO de requête (`@NotBlank`, `@NotNull`…).
+     Spring lève alors `MethodArgumentNotValidException`, qui transporte un **`BindingResult`** : la
+     liste des erreurs, chacune avec son champ, son code et son message ;
+   - une **règle du domaine** échoue (produit indisponible…) : le service lève
+     `DomainValidationException`.
+2. **`GlobalExceptionHandler` le met en forme.** Il lit le `BindingResult` (ou l'exception du domaine),
+   regroupe les erreurs par code et répond en HTTP : `400` pour une erreur de forme, `422` pour une
+   règle métier. Le corps de la réponse suit toujours le format d'erreur unique du chapitre 4
+   (`ResponseApiError`), quelle que soit l'origine de l'erreur.
+3. **Le frontend lit la réponse.** Il ne partage aucun code avec le backend : il décode le JSON dans sa
+   propre copie du format, puis `ResponseApiErrorTranslator` le traduit en **exception typée** selon le
+   statut HTTP et le `code` (par exemple `422` → `BackendOrderValidationException`). Le contrôleur
+   n'a plus à manipuler de JSON ni de statuts.
+4. **Le frontend l'affiche.** Le contrôleur recopie chaque erreur dans le **`BindingResult` de son
+   formulaire** (`rejectValue` pour un champ précis, `reject` pour une erreur globale). Le
+   `BindingResult` joue ici l'autre rôle : c'est le « porte-erreurs » que Thymeleaf lit pour afficher
+   le message **sous le champ**, en **message global** en haut du formulaire, ou, après une
+   redirection, en **bandeau** (message « flash »).
+
+> **Un même nom, deux rôles.** Côté backend, le `BindingResult` est **lu** : il décrit ce qui ne va pas
+> dans la requête reçue. Côté frontend, il est **rempli** : il décrit ce qu'il faut afficher dans le
+> formulaire. Le format d'erreur JSON du backend fait le pont entre les deux.
 
 Retenez l'idée directrice : **le backend décide de ce qui est faux et le dit dans un format stable ;
 le frontend décide seulement où et comment l'afficher.** Les sections 6.2 à 6.4 suivent ces étapes
