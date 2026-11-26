@@ -1679,14 +1679,3 @@ règles de livraison R1 à R5.
 | **Port** | Interface Java décrivant un cas d'utilisation offert (entrée) ou un besoin du domaine (sortie) |
 | **`@RestControllerAdvice`** | Classe Spring qui traite les exceptions de tous les contrôleurs |
 
----
-
-## 9. Où trouver le détail
-
-| Sujet | Document du dépôt |
-|---|---|
-| Règles d'architecture et conventions | `CLAUDE.md` |
-| Validation et gestion des erreurs, en détail | `Validation.md` |
-| Choix sur les événements, le client et l'e-mail simulé | `Events_CoiseII.md` |
-| Stratégie de tests d'intégration et infrastructure | `INTEGRATION_TESTS.md` |
-| Validation côté frontend et affichage des erreurs, en détail | `FRONTEND_VALIDATION.md` |
