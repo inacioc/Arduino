@@ -15,13 +15,14 @@
 ## Sommaire
 
 1. [Introduction](#1-introduction)
-2. [Structure des packages et modules Maven](#2-structure-des-packages)
+2. [Structure des packages](#2-structure-des-packages)
 3. [Validation dans le domaine](#3-validation-dans-le-domaine)
 4. [Gestion des erreurs avec `@RestControllerAdvice`](#4-gestion-des-erreurs-avec-restcontrolleradvice)
 5. [Spring Modulith](#5-spring-modulith)
 6. [Le frontend et les erreurs du backend](#6-le-frontend-et-les-erreurs-du-backend)
-7. [Glossaire](#7-glossaire)
-8. [Où trouver le détail](#8-où-trouver-le-détail)
+7. [Modules Maven et livrables](#7-modules-maven-et-livrables)
+8. [Glossaire](#8-glossaire)
+9. [Où trouver le détail](#9-où-trouver-le-détail)
 
 ---
 
@@ -30,40 +31,56 @@
 ### 1.1 Objet de ce document
 
 Ce document décrit **l'architecture que les équipes backend doivent suivre** et les règles qui
-l'accompagnent : comment organiser les packages, où placer chaque type de classe, où vérifier
-les règles métier, comment répondre aux erreurs et comment faire réagir les parties de
-l'application les unes aux autres. L'objectif est qu'une personne qui change d'équipe ou de
-projet **retrouve les mêmes repères** : mêmes noms de packages, mêmes responsabilités, mêmes
-règles de dépendance.
+l'accompagnent : comment organiser les packages et les modules Maven, où placer chaque type de
+classe, où vérifier les règles métier, comment répondre aux erreurs, comment faire réagir les
+parties de l'application les unes aux autres, et comment un frontend reçoit et affiche les erreurs
+de l'API.
 
-Il est le **résultat d'échanges avec plusieurs équipes**. Il n'est pas figé : il **peut et doit
-évoluer dans le temps**, en fonction des retours de toutes les personnes concernées : les équipes
-projet, les architectes et les équipes CI/CD (intégration et déploiement continus). Toute
-remarque ou difficulté rencontrée en appliquant ces choix est une contribution utile. Il sert
-enfin de **référence pour les futurs projets de l'entreprise**.
+L'objectif est simple : qu'une personne qui change d'équipe ou de projet **retrouve les mêmes
+repères** (mêmes noms de packages, mêmes responsabilités, mêmes règles de dépendance, même format
+d'erreur) et puisse être efficace dès le premier jour.
 
-Pour que ces règles soient concrètes et vérifiables, elles sont appliquées dans une
-**application d'illustration** (présentée en 1.4). Elle est au second plan : on s'y réfère pour
-montrer un exemple de code, mais ce sont **les règles d'architecture** qui sont l'objet du document.
+Ce document est le **résultat d'échanges avec plusieurs équipes**. Il n'est pas figé : il **peut et
+doit évoluer dans le temps**, en fonction des retours de toutes les personnes concernées : les
+équipes projet, les architectes et les équipes CI/CD (intégration et déploiement continus). Toute
+remarque ou difficulté rencontrée en appliquant ces choix est une contribution utile. Il sert enfin
+de **référence pour les futurs projets de l'entreprise**.
 
-### 1.2 Les quatre décisions
+### 1.2 Un choix unique : l'architecture hexagonale
 
-Chaque décision répond à une question simple que toute équipe se pose un jour :
+**Décision : tous les projets backend de l'entreprise suivent l'architecture hexagonale (ports et
+adaptateurs), et aucune autre.** Ce n'est pas une préférence de style : c'est une décision
+d'entreprise, et elle est suffisante.
 
-| Question | Choix retenu | Section |
-|---|---|---|
-| Où ranger le code ? | Un package par **sujet métier**, avec la même organisation interne dans chacun : `application`, `domain`, `adapter` | [2](#2-structure-des-packages) |
-| Où vérifier les règles métier ? | Dans le **domaine**, en rassemblant toutes les erreurs d'une requête avant de répondre | [3](#3-validation-dans-le-domaine) |
-| Comment répondre quand quelque chose échoue ? | Un **format de réponse unique**, produit à un seul endroit du code | [4](#4-gestion-des-erreurs-avec-restcontrolleradvice) |
-| Comment faire réagir une partie de l'application à ce qui se passe dans une autre ? | Des **événements** Spring Modulith, enregistrés en base pour ne jamais être perdus | [5](#5-spring-modulith) |
+**Elle suffit.** Les besoins des projets de l'entreprise se ramènent toujours au même schéma : des
+règles métier, entourées de technologies qui les déclenchent ou qu'elles utilisent (API REST, base
+de données, files de messages IBM MQ, traitements planifiés, événements). L'architecture hexagonale
+traite tous ces cas avec **un seul principe** : chaque technologie est un adaptateur branché sur un
+port. Une nouvelle technologie ne demande pas une nouvelle architecture, seulement un nouvel adaptateur.
 
-Ces quatre décisions sont liées : la structure des packages (2) détermine où vivent les règles
-de validation (3) ; les erreurs qu'elles produisent sont traduites en réponses HTTP (4) ; et les
-événements (5) permettent aux sujets métier de réagir les uns aux autres sans se connaître.
-Comprendre ces décisions évite d'écrire du code qui fonctionne mais qui ne respecte pas
-l'esprit de l'architecture.
+**Pourquoi n'en autoriser qu'une seule ?**
 
-### 1.3 Le fil conducteur : l'architecture hexagonale
+| Raison | Explication |
+|---|---|
+| **Les architectures se recouvrent** | Architecture en couches, « Clean Architecture », architecture en oignon, hexagonale : elles poursuivent le même but (protéger le métier de la technique) avec un **vocabulaire différent** (*use case* / *interactor*, *port* / *gateway*, *adapter* / *infrastructure*…). En autoriser plusieurs, c'est multiplier les mots pour les mêmes idées, et les débats stériles sur « la bonne » façon de nommer un dossier. |
+| **Elles cohabitent mal** | Deux styles dans un même projet, ou d'un projet à l'autre, produisent des packages incohérents, des règles de dépendance contradictoires et des classes dont on ne sait plus où les ranger. Le code « fonctionne », mais personne ne sait plus quelle règle s'applique. |
+| **Mobilité et intégration des personnes** | Un développeur qui change de projet n'a rien à réapprendre : même structure, mêmes noms, mêmes conventions. Une formation unique suffit pour toutes les équipes. |
+| **Revue de code plus simple** | Une seule référence permet de juger objectivement une contribution : « cette classe est-elle au bon endroit ? » a une seule réponse. |
+| **Outillage et CI/CD partagés** | Une architecture unique permet des contrôles automatiques communs (tests d'architecture, vérification Spring Modulith, modèles de projet, pipelines), écrits une fois et réutilisés partout. |
+| **Maintenance à long terme** | Les projets vivent plus longtemps que les équipes qui les ont créés. Une architecture unique et documentée réduit le coût de reprise d'un projet par une autre équipe. |
+| **Gouvernance et évolution** | Faire évoluer une seule architecture (par ce document) est réaliste ; en faire évoluer plusieurs en parallèle ne l'est pas. |
+
+> **Et Spring Modulith, DDD… ce ne sont pas d'autres architectures ?** Non : ils **complètent**
+> l'hexagone, ils ne le remplacent pas. Spring Modulith (chapitre 5) découpe l'application en modules
+> métier et leur permet de communiquer par événements ; **à l'intérieur de chaque module, on retrouve
+> le même hexagone**. Les notions de DDD utilisées ici (agrégat, règle métier dans le domaine) sont,
+> elles aussi, des pratiques qui s'appliquent *dans* le domaine de l'hexagone.
+
+Si un projet rencontre un besoin que l'architecture hexagonale ne semble pas couvrir, la réponse
+n'est pas d'introduire une autre architecture, mais de **remonter le cas** pour faire évoluer ce
+document (section 1.1).
+
+### 1.3 Le principe en une image
 
 Toute l'architecture repose sur une règle unique : **le cœur métier ne dépend d'aucune technologie**.
 
@@ -97,18 +114,48 @@ domaine ; le domaine ne connaît jamais un adaptateur.
 Le style retenu est dit **« pragmatique »** : les ports d'entrée retournent directement les objets
 du domaine, et c'est l'adaptateur (le contrôleur) qui les convertit en objets de réponse (DTO).
 
-### 1.4 L'application d'illustration
+### 1.4 Ce que ce document décide
 
-Les règles sont démontrées sur **Order Management**, une application Java (Spring Boot) qui gère
-des commandes, des clients et des produits : API REST, base PostgreSQL, messages IBM MQ et
-traitement planifié (Spring Batch). **Ce n'est pas une application de gestion de commandes
-complète et fonctionnelle** : ce sujet n'est qu'un prétexte, assez simple pour que tout le monde
-le comprenne et assez riche pour exposer des situations réelles (validation, erreurs,
+Chaque chapitre répond à une question que toute équipe se pose un jour :
+
+| Question | Choix retenu | Chapitre |
+|---|---|---|
+| Où ranger le code ? | Un package par **sujet métier**, avec la même organisation interne dans chacun : `application`, `domain` (Java pur), `adapter`. | [2](#2-structure-des-packages) |
+| Comment découper le projet en modules Maven, et que déployer ? | Six modules `hexa-*` ; des **livrables** séparés selon le cycle de vie : l'API (avec la messagerie MQ s'il y en a) d'un côté, le batch toujours à part | [7](#7-modules-maven-et-livrables) |
+| Où vérifier les règles ? | La **forme** de la requête par Bean Validation à l'entrée de l'API ; les **règles métier** dans le domaine, en rassemblant toutes les erreurs d'une requête avant de répondre | [3](#3-validation-dans-le-domaine) |
+| Comment répondre quand quelque chose échoue ? | Un **format de réponse unique**, produit à un seul endroit du code (`GlobalExceptionHandler`) | [4](#4-gestion-des-erreurs-avec-restcontrolleradvice) |
+| Comment faire réagir une partie de l'application à ce qui se passe dans une autre ? | Des **événements** Spring Modulith, enregistrés en base pour ne jamais être perdus | [5](#5-spring-modulith) |
+| Comment l'utilisateur voit-il une erreur ? | Le frontend lit le format unique et place chaque message au bon endroit de l'écran | [6](#6-le-frontend-et-les-erreurs-du-backend) |
+
+**Ces décisions forment une chaîne.** Suivons une seule requête, « créer une commande », à travers
+tout le document :
+
+1. Elle arrive sur un **adaptateur d'entrée** (contrôleur REST) rangé dans le package du sujet
+   métier `order` (chapitre 2), et livré dans le jar `hexa-api` (chapitre 7).
+2. Sa **forme** est vérifiée par Bean Validation ; ses **règles métier** (produit disponible, prix
+   correct…) par un validateur du domaine, qui rassemble toutes les erreurs (chapitre 3).
+3. En cas d'échec, `GlobalExceptionHandler` transforme l'erreur en réponse `400` ou `422` au
+   **format unique** (chapitre 4).
+4. En cas de succès, la commande est enregistrée et un **événement** est publié ; d'autres modules
+   (notification, audit) y réagissent sans que le module `order` les connaisse (chapitre 5).
+5. Côté frontend, la réponse d'erreur devient un **message placé sous le bon champ** (chapitre 6).
+
+Comprendre cette chaîne évite d'écrire du code qui fonctionne mais qui ne respecte pas l'esprit
+de l'architecture.
+
+### 1.5 L'application d'illustration
+
+Pour que ces règles soient concrètes et vérifiables, elles sont appliquées dans une application
+d'illustration, **Order Management** : une application Java (Spring Boot) qui gère des commandes,
+des clients et des produits, avec API REST, base PostgreSQL, messages IBM MQ et traitement planifié
+(Spring Batch). Elle est **au second plan** : **ce n'est pas une application de gestion de
+commandes complète et fonctionnelle**. Ce sujet n'est qu'un prétexte, assez simple pour que tout le
+monde le comprenne et assez riche pour exposer des situations réelles (validation, erreurs,
 messages, événements, traitements planifiés). Les noms de classes cités dans ce document
-(`OrderController`, `CreateOrderValidator`…) viennent de cette application ; remplacez-les mentalement
-par ceux de votre propre sujet métier.
+(`OrderController`, `CreateOrderValidator`…) viennent de cette application ; remplacez-les
+mentalement par ceux de votre propre sujet métier.
 
-### 1.5 Comment lire la suite
+### 1.6 Comment lire la suite
 
 | Vous voulez… | Lisez |
 |---|---|
@@ -117,7 +164,8 @@ par ceux de votre propre sujet métier.
 | Comprendre une réponse d'erreur de l'API ou en ajouter une | Chapitre 4 |
 | Faire réagir une partie du code à un changement d'état | Chapitre 5 |
 | Comprendre comment une erreur de l'API arrive à l'écran, ou le chemin d'une erreur de Bean Validation | Chapitre 6 |
-| Comprendre un terme | Chapitre 7 (glossaire) |
+| Savoir quels jars livrer et déployer sur les serveurs | Chapitre 7 |
+| Comprendre un terme | Chapitre 8 (glossaire) |
 
 ---
 
@@ -437,118 +485,15 @@ Il ne faut pas confondre deux notions qui portent un nom proche :
 |---|---|---|
 | Ce que c'est | Un sujet métier (`order`, `customer`…) : un package | Un projet de compilation qui produit un fichier jar |
 | Découpage selon | Le **métier** | La **technologie** (persistance, messagerie, web…) |
-| Où c'est décrit | Chapitre 2.2 à 2.10 | Cette section |
+| Où c'est décrit | Chapitre 2.2 à 2.10 | **Chapitre 7** |
 
 Les deux découpages sont **croisés** : un module métier (`order`) a ses classes réparties sur
 plusieurs modules Maven (ses entités JPA dans `adapter-out-persistence`, son contrôleur dans
 `adapter-in-web`, etc.). Tous partagent le même package racine `com.example.ordermanagement`.
 
-#### Structure cible : un module de démarrage (`bootstrap`)
-
-Dans la structure **cible**, aucun adaptateur n'est exécutable. Un module Maven dédié,
-**`bootstrap`**, est le seul à contenir la classe `main` : il **choisit quels adaptateurs
-démarrer** en les déclarant comme dépendances. Les adaptateurs deviennent de simples
-bibliothèques, sans classe de démarrage.
-
-```
-order-management-parent                (pom parent : versions et configuration communes)
-├── domain                             application + domain de TOUS les modules métier
-├── adapter-in-web                     API REST (bibliothèque)
-├── adapter-in-mq                      réception de messages IBM MQ (bibliothèque, à créer si on sépare l'entrée MQ)
-├── adapter-in-batch                   traitement planifié (bibliothèque)
-├── adapter-out-persistence            JPA, mappers (bibliothèque)
-├── adapter-out-messaging              publication IBM MQ (bibliothèque)
-├── adapter-events                     événements Spring Modulith (bibliothèque)
-├── (autres adaptateurs si besoin)     par exemple un client REST vers une autre API
-└── bootstrap                          SEUL module exécutable : classe main, configuration, assemblage
-```
-
-```mermaid
-flowchart BT
-    subgraph libs ["Bibliothèques"]
-        D["domain"]
-        WEB["adapter-in-web"]
-        MQ["adapter-in-mq"]
-        BAT["adapter-in-batch"]
-        DB["adapter-out-persistence"]
-        MSG["adapter-out-messaging"]
-        EVT["adapter-events"]
-    end
-    WEB --> D
-    MQ --> D
-    BAT --> D
-    DB --> D
-    MSG --> D
-    EVT --> D
-    BOOT["bootstrap<br/>(seul module exécutable)"] -.->|"choisit"| WEB
-    BOOT -.-> MQ
-    BOOT -.-> BAT
-    BOOT --> DB
-    BOOT --> MSG
-    BOOT --> EVT
-```
-
-**À quoi sert ce module ?** Une même base de code peut être déployée de plusieurs façons, selon
-les adaptateurs que l'on inclut :
-
-| Je veux déployer… | `bootstrap` dépend de… |
-|---|---|
-| Une application complète (API + messages + traitement planifié) | `adapter-in-web`, `adapter-in-mq`, `adapter-in-batch`, et les adaptateurs `out` |
-| Seulement l'API REST | `adapter-in-web` et les adaptateurs `out` nécessaires |
-| Seulement le consommateur de messages MQ | `adapter-in-mq` et les adaptateurs `out` nécessaires |
-| Seulement le traitement planifié | `adapter-in-batch` et la persistance |
-
-Le choix se fait par **les dépendances Maven du module `bootstrap`** (ou par plusieurs
-variantes de ce module, une par type de déploiement), sans modifier ni le domaine ni les adaptateurs.
-
-**Ce que contient `bootstrap`** (et seulement cela) :
-
-- la classe `main` annotée `@SpringBootApplication`, avec le package à scanner (`com.example.ordermanagement`) ;
-- la configuration applicative : `application.yml` (base de données, MQ, sécurité, réglages Spring Modulith comme `republish-outstanding-events-on-restart`) ;
-- les tests d'intégration de bout en bout et la génération de la documentation Modulith (`ModulithDocumentationTest`), car ce module voit toute l'application ;
-- le plugin de packaging `spring-boot-maven-plugin`, qui produit le jar exécutable.
-
-Il ne contient **aucune règle métier** ni aucun adaptateur.
-
-> **Pourquoi un module dédié ?** Avant sa création, `adapter-in-web` jouait deux rôles : adaptateur de
-> l'API REST *et* point de démarrage de toute l'application. Un adaptateur ne devrait pas
-> décider de ce qui est assemblé. Séparer les deux rôles permet d'ajouter un adaptateur (MQ, batch,
-> autre) sans toucher à l'API web, et de déployer des variantes différentes.
-
-#### Structure actuelle
-
-Le module `bootstrap` existe maintenant dans le code : il contient `OrderManagementApplication`, le `application.yml` et les tests de bout en bout, et `adapter-in-web` est devenu une bibliothèque. Les modules `adapter-in-mq` et `adapter-in-batch` ne sont pas encore créés : l'entrée MQ reste dans `adapter-out-messaging` et le traitement planifié dans `adapter-out-batch`, qui garde sa propre classe de démarrage. État actuel :
-
-| Module Maven | Contient | Dépend de | Exécutable ? |
-|---|---|---|---|
-| `domain` | `application.*` et `domain.*` des modules métier, plus `shared` | Aucun autre module du projet | Non (bibliothèque) |
-| `adapter-out-persistence` | Persistance JPA | `domain` | Non |
-| `adapter-out-messaging` | IBM MQ (entrée et sortie) | `domain` | Non |
-| `adapter-out-batch` | Traitement planifié | `domain`, `adapter-out-persistence` | Oui (`BatchApplication`) |
-| `adapter-events` | Événements Modulith, table `event_publication` | `domain` | Non |
-| `adapter-in-web` | API REST, `infrastructure` | `domain` | Non (bibliothèque) |
-| `bootstrap` | `OrderManagementApplication`, `application.yml`, tests de bout en bout | `domain`, `adapter-in-web`, persistance, messagerie, événements | **Oui** (assemble l'application) |
-| `frontend` | (hors périmètre) | — | Oui |
-
-#### Ce qu'il faut en retenir
-
-- **Le sens des flèches est celui de l'architecture hexagonale** : tous les adaptateurs dépendent de `domain` ; `domain` ne dépend d'aucun adaptateur. Maven **fait respecter** la règle d'or au moment de la compilation : si `domain` essayait d'importer une classe JPA, le build échouerait.
-- **Les adaptateurs ne se connaissent pas entre eux.** Seul `bootstrap` les voit tous. Les exceptions actuelles (par exemple le traitement planifié qui réutilise la persistance) sont à examiner lors de la migration.
-- **Un nouveau type d'adaptateur = un nouveau module Maven** (par exemple `adapter-out-rest` pour appeler une API externe), ajouté dans le pom parent, puis dans les dépendances de `bootstrap` s'il doit être démarré.
-- **`bootstrap` est le seul module exécutable** (structure cible).
-
-> **Remarque : `domain` Maven et package `domain`.** Le module Maven `domain` regroupe aujourd'hui
-> **deux** couches de la structure cible : `application` (services, validateurs, ports) et `domain`
-> (modèle, événements, exceptions). Ses dépendances à `spring-context` et `spring-tx` servent à la
-> couche `application` (annotations `@Service`, `@Transactional`). **Le package `domain` reste du
-> Java pur** même s'il est compilé dans ce module : la règle s'applique au package, pas au jar.
-> Séparer en deux modules Maven (`domain` pur, `application`) permettrait à Maven de faire respecter
-> cette règle aussi, au prix d'un module de plus. C'est une évolution possible, à discuter avec les équipes.
-
-> **Point à valider.** La séparation des entrées MQ et batch en modules `adapter-in-*` distincts, et
-> le déploiement de variantes partielles (par exemple sans l'API REST), n'ont pas été essayés sur le projet.
-> En particulier, les configurations de sécurité et de messagerie qui vivent aujourd'hui dans
-> `infrastructure` devront être réparties entre les adaptateurs concernés et `bootstrap`.
+**L'organisation des modules Maven** (les six modules `hexa-*`) **et les règles de livraison** (quels
+jars sont déployés sur les serveurs) sont décrites au **chapitre 7**, qui fait référence. L'application
+d'illustration utilise d'autres noms et un module `bootstrap` ; la correspondance est donnée en 7.7.
 
 ---
 
@@ -1105,7 +1050,7 @@ Le cycle de vie d'une publication :
 | 3. Complétion | L'écouteur se termine sans erreur | `COMPLETED`, `completion_date` renseignée |
 | 4. Échec puis reprise | En cas d'échec ou d'arrêt, la ligne reste incomplète et l'événement pourra être rejoué | `FAILED` (ou `PROCESSING` si l'arrêt a interrompu le traitement), puis `RESUBMITTED` à la relance |
 
-Réglage utilisé (`application.yml` du module `bootstrap`, voir 2.11) :
+Réglage utilisé (`application.yml` du module `bootstrap`, voir 7.7) :
 
 ```yaml
 spring:
@@ -1506,7 +1451,216 @@ et Thymeleaf l'affiche avec `th:errors` ou `#fields.globalErrors()`.
 
 ---
 
-## 7. Glossaire
+## 7. Modules Maven et livrables
+
+> **De quoi parle ce chapitre ?** Le chapitre 2 range le code dans des **packages**, selon le métier.
+> Ce chapitre répond à deux autres questions, plus proches du build et de l'exploitation :
+>
+> 1. **Comment découper le projet en modules Maven ?** (organisation du code à la compilation)
+> 2. **Quels fichiers livre-t-on et déploie-t-on sur les serveurs ?** (les livrables exécutables)
+>
+> Les noms utilisés ici (`hexa-*`) sont ceux de la **structure de référence** à suivre. L'application
+> d'illustration utilise d'autres noms et une variante ; la correspondance est donnée en 7.7.
+
+### 7.1 Deux notions à ne pas confondre : module et livrable
+
+Pensez à une cuisine de restaurant. Les **ingrédients** (légumes, sauces, viandes) sont préparés
+séparément, chacun à son poste ; les **plats** servis au client en assemblent plusieurs. Un ingrédient
+n'est jamais servi seul.
+
+| | Module Maven | Livrable |
+|---|---|---|
+| Analogie | Un ingrédient | Un plat servi |
+| Ce que c'est | Un projet de compilation qui produit un jar | Un jar **exécutable** (Spring Boot), déployé et démarré sur un serveur |
+| Combien ? | Six modules `hexa-*` | Un à trois selon le projet (règles en 7.4) |
+| Contient une classe `main` ? | Pas forcément | **Toujours** |
+
+**Tout livrable est un module Maven, mais tout module Maven n'est pas un livrable.** Certains modules
+(`hexa-business`, `hexa-database`, `hexa-events`) ne sont **jamais** déployés seuls : ce sont des
+bibliothèques, embarquées comme dépendances dans les livrables.
+
+### 7.2 Les six modules
+
+```
+hexa-parent                (pom parent : versions et configuration communes)
+├── hexa-business          le cœur : application + domain de tous les modules métier
+├── hexa-database          adaptateur de persistance (JPA, Liquibase)
+├── hexa-events            adaptateur des événements Spring Modulith (table event_publication)
+├── hexa-messaging         adaptateur IBM MQ (réception et émission de messages)
+├── hexa-api               adaptateur API REST
+└── hexa-batch             adaptateur de traitements planifiés (Spring Batch)
+```
+
+| Module | Rôle dans l'hexagone | Packages du chapitre 2 qu'il contient | Peut être un livrable ? |
+|---|---|---|---|
+| `hexa-business` | **Le centre** : règles métier et cas d'utilisation | `application.*`, `domain.*`, plus `shared` | **Non**, jamais |
+| `hexa-database` | Adaptateur de sortie : la base de données | `adapter.database.out` | **Non**, jamais |
+| `hexa-events` | Adaptateur : événements entre modules métier (chapitre 5) | partie « événements Spring » de `adapter.event.in` / `adapter.event.out` | **Non**, jamais |
+| `hexa-messaging` | Adaptateur d'entrée et de sortie : IBM MQ | partie « IBM MQ » de `adapter.event.in` / `adapter.event.out` | **Oui**, s'il n'y a pas de `hexa-api` |
+| `hexa-api` | Adaptateur d'entrée : l'API REST | `adapter.api.in` (et ses DTO) | **Oui** |
+| `hexa-batch` | Adaptateur d'entrée : traitements planifiés | `adapter.batch.in` | **Oui**, toujours seul |
+
+Comme au chapitre 2, les deux découpages sont **croisés** : le module métier `order` a ses classes
+réparties dans plusieurs modules Maven (son domaine dans `hexa-business`, ses entités JPA dans
+`hexa-database`, son contrôleur dans `hexa-api`…), toutes sous le même package racine.
+
+> **Remarque : `hexa-business` et le Java pur.** `hexa-business` regroupe **deux** couches :
+> `application` (services, validateurs, ports, qui peuvent porter `@Service` ou `@Transactional`) et
+> `domain` (Java pur). La règle « Java pur » s'applique donc **au package `domain`**, pas au jar entier.
+> Séparer `hexa-business` en deux modules permettrait à Maven de faire respecter cette règle, au prix
+> d'un module de plus : c'est une évolution possible, à discuter avec les équipes.
+
+### 7.3 Les dépendances entre modules
+
+```mermaid
+flowchart BT
+    B["hexa-business<br/>(le cœur)"]
+    DB["hexa-database"] --> B
+    EVT["hexa-events"] --> B
+    MSG["hexa-messaging"] --> B
+    API["hexa-api"] --> B
+    BAT["hexa-batch"] --> B
+    API -.->|"embarque si besoin"| DB
+    API -.-> EVT
+    API -.->|"embarque s'il existe"| MSG
+    MSG -.-> DB
+    MSG -.-> EVT
+    BAT -.-> DB
+    BAT -.-> EVT
+```
+
+Trois règles :
+
+- **Tout dépend de `hexa-business` ; `hexa-business` ne dépend de rien.** C'est la règle d'or de
+  l'architecture hexagonale (chapitre 1), et Maven la **fait respecter** : si `hexa-business` tentait
+  d'importer une classe JPA, la compilation échouerait.
+- **Les adaptateurs de sortie (`hexa-database`, `hexa-events`) ne se connaissent pas entre eux** et ne
+  connaissent aucun adaptateur d'entrée.
+- **Seuls les modules livrables (`hexa-api`, `hexa-messaging`, `hexa-batch`) assemblent** : ils déclarent
+  en dépendance les adaptateurs dont ils ont besoin (flèches en pointillé).
+
+### 7.4 Les règles de livraison
+
+Un livrable est ce qui est **déployé et démarré sur un serveur**. Les règles sont les suivantes :
+
+| # | Règle |
+|---|---|
+| **R1** | `hexa-batch` a **toujours son propre livrable**, isolé du reste. |
+| **R2** | Quand `hexa-api` **et** `hexa-messaging` existent, ils forment **un seul livrable** : `hexa-api`, qui embarque `hexa-messaging` comme dépendance. |
+| **R3** | Quand seul `hexa-messaging` existe (pas d'API), il a **son propre livrable**. |
+| **R4** | Quand seul `hexa-api` existe (pas de messagerie), il a **son propre livrable**. |
+| **R5** | Tous les autres modules (`hexa-business`, `hexa-database`, `hexa-events`) ne sont **jamais livrés seuls** : ils voyagent comme dépendances des livrables. |
+
+Appliquées à chaque combinaison possible :
+
+| Le projet contient… | Livrables déployés | Règles |
+|---|---|---|
+| `hexa-api` | `hexa-api` | R4 |
+| `hexa-messaging` | `hexa-messaging` | R3 |
+| `hexa-api` + `hexa-messaging` | `hexa-api` (avec la messagerie) | R2 |
+| `hexa-batch` | `hexa-batch` | R1 |
+| `hexa-api` + `hexa-batch` | `hexa-api`, `hexa-batch` | R4, R1 |
+| `hexa-messaging` + `hexa-batch` | `hexa-messaging`, `hexa-batch` | R3, R1 |
+| `hexa-api` + `hexa-messaging` + `hexa-batch` | `hexa-api` (avec la messagerie), `hexa-batch` | R2, R1 |
+
+Le cas le plus complet, en image :
+
+```mermaid
+flowchart LR
+    subgraph L1 ["Livrable 1 : hexa-api.jar (serveur d'application, toujours actif)"]
+        A1["hexa-api"] --- M1["hexa-messaging"]
+        A1 --- B1["hexa-business"]
+        A1 --- D1["hexa-database"]
+        A1 --- E1["hexa-events"]
+    end
+    subgraph L2 ["Livrable 2 : hexa-batch.jar (lancé par l'ordonnanceur)"]
+        T2["hexa-batch"] --- B2["hexa-business"]
+        T2 --- D2["hexa-database"]
+        T2 --- E2["hexa-events"]
+    end
+```
+
+Les mêmes bibliothèques (`hexa-business`, `hexa-database`…) se retrouvent **dans les deux livrables** :
+c'est normal, chaque livrable est autonome et embarque tout ce dont il a besoin.
+
+### 7.5 Pourquoi ces règles ?
+
+**Pourquoi `hexa-batch` est-il toujours isolé ?** Un traitement planifié ne vit pas comme une API :
+
+| | API / messagerie | Traitement planifié |
+|---|---|---|
+| Cycle de vie | **Toujours actif**, attend des requêtes ou des messages | **Démarre, traite, s'arrête** |
+| Qui le lance ? | Le serveur, au déploiement | Un ordonnanceur, à heure fixe |
+| Consommation | Régulière | Pics de mémoire et de CPU pendant le traitement |
+| En cas d'erreur | Doit rester disponible | Peut être relancé sans impact sur les utilisateurs |
+
+Les mettre dans le même livrable ferait subir à l'API les pics de charge du batch, empêcherait de
+relancer un batch sans redémarrer l'API, et obligerait à redéployer l'un pour corriger l'autre.
+
+**Pourquoi `hexa-api` et `hexa-messaging` vont-ils ensemble ?** Ils ont **le même cycle de vie** : tous
+deux sont toujours actifs et attendent un stimulus (une requête HTTP, un message MQ). Ils utilisent les
+mêmes cas d'utilisation, la même base et les mêmes événements. Un seul livrable signifie :
+
+- **un déploiement de moins** à préparer, à surveiller et à faire évoluer ;
+- **une seule version** du code métier en production pour ces deux entrées, donc aucun risque de décalage ;
+- **un seul ensemble de connexions** (base, MQ) et une seule configuration à maintenir.
+
+**Pourquoi `hexa-business`, `hexa-database` et `hexa-events` ne sont-ils jamais livrés seuls ?** Parce
+qu'ils ne savent rien **déclencher** : aucun d'eux ne reçoit de requête, de message ou de signal de
+démarrage. Ce sont des briques qu'un adaptateur d'entrée met en mouvement.
+
+> **Règle simple à retenir :** un livrable correspond à **une façon d'entrer dans l'application**
+> (HTTP et MQ ensemble, ou un batch) et **un cycle de vie** (toujours actif, ou lancé puis arrêté).
+
+### 7.6 Ce que contient un module livrable
+
+Un module livrable (`hexa-api`, `hexa-messaging` livré seul, `hexa-batch`) contient, en plus de son
+adaptateur :
+
+- la **classe `main`** annotée `@SpringBootApplication`, qui scanne le package racine ;
+- la **configuration** du livrable (`application.yml` : base de données, MQ, sécurité, réglages Spring Modulith) ;
+- les **tests d'intégration de bout en bout** de ce livrable ;
+- le plugin **`spring-boot-maven-plugin`**, qui produit le jar exécutable.
+
+Il ne contient **aucune règle métier** : celles-ci restent dans `hexa-business`.
+
+**Point technique : `hexa-messaging` est à la fois une bibliothèque et un livrable.** Selon la règle R2,
+`hexa-api` l'utilise comme dépendance ; selon la règle R3, il peut être livré seul. Deux précautions :
+
+- **Produire deux jars.** Le jar exécutable de Spring Boot ne peut pas servir de dépendance Maven. On
+  configure `spring-boot-maven-plugin` avec un **classifier** (par exemple `exec`) : Maven produit alors
+  le jar normal (utilisable comme dépendance par `hexa-api`) **et** un jar exécutable séparé.
+- **Ne pas démarrer deux applications.** La classe `main` de `hexa-messaging` (et sa configuration de
+  démarrage) ne doit pas être prise en compte quand le module est embarqué dans `hexa-api`. On la place
+  dans un package qui n'est pas scanné par `hexa-api`, ou on ne l'ajoute que lorsque le module est livré seul.
+
+> **Point à valider.** Ces deux précautions sont des pratiques Spring Boot courantes, mais elles n'ont
+> pas été essayées sur le projet de référence. Elles sont à confirmer avec les équipes CI/CD, qui
+> construisent et déploient les livrables.
+
+### 7.7 Et dans l'application d'illustration ?
+
+L'application d'illustration n'utilise pas encore les noms `hexa-*`, et elle a fait un choix
+différent : un module **`bootstrap`**, seul module exécutable, qui assemble tous les adaptateurs.
+C'est une **variante** : elle produit un livrable unique, alors que la structure de référence répartit
+la classe `main` entre les modules livrables selon les règles de 7.4.
+
+| Application d'illustration | Structure de référence |
+|---|---|
+| `domain` | `hexa-business` |
+| `adapter-out-persistence` | `hexa-database` |
+| `adapter-events` | `hexa-events` |
+| `adapter-out-messaging` | `hexa-messaging` |
+| `adapter-in-web` + `bootstrap` | `hexa-api` (adaptateur REST, classe `main` et configuration) |
+| `adapter-out-batch` (avec sa propre classe `BatchApplication`) | `hexa-batch` |
+| `frontend` | hors périmètre (application séparée, chapitre 6) |
+
+**Ce qu'il faut retenir pour un nouveau projet :** suivre la structure de référence `hexa-*` et les
+règles de livraison R1 à R5.
+
+---
+
+## 8. Glossaire
 
 | Terme | Définition |
 |---|---|
@@ -1527,7 +1681,7 @@ et Thymeleaf l'affiche avec `th:errors` ou `#fields.globalErrors()`.
 
 ---
 
-## 8. Où trouver le détail
+## 9. Où trouver le détail
 
 | Sujet | Document du dépôt |
 |---|---|
